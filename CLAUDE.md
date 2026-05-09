@@ -33,6 +33,8 @@ no StructureDefinition conformance, no terminology binding).
 │  ├── /r6/fhir/oauth/* — OAuth 2.1 + SMART       │
 │  ├── /fasten/* — Fasten Connect EHR integration  │
 │  ├── / — Landing page                            │
+│  ├── /skills — Auto-indexed skill catalogue      │
+│  ├── /api/subscribe — Resend signup + welcome    │
 │  └── /r6-dashboard — Interactive dashboard       │
 ├─────────────────────────────────────────────────┤
 │  MCP Server (Node.js + TypeScript)               │
@@ -78,12 +80,12 @@ Client → MCP Server → Flask (guardrails) → Upstream FHIR Server
 /services/agent-orchestrator/  Node.js MCP server (TypeScript)
 /scripts/                 CLI utilities: import_healthex.py, export_healthex.py, export_healthex_mcp.py (MCP-SDK pull from HealthEx), export_healthex_legacy.py, healthclaw_redact.py (in-process PHI redaction), bot_commands.py (OpenClaw slash-command dispatcher), convert_fasten.py, demo_e2e.sh, smoke_test.py, seed_openclaw_workspaces.sh, update_agent_prompts.sh, kristy_schedule_watcher.py
 /openclaw/                Telegram bot (bot.py + Dockerfile) — conversational interface to the stack
-/skills/                  OpenClaw skill definitions (curatr, fhir-r6-guardrails, phi-redaction, fhir-upstream-proxy, fasten-connect, healthex-export, healthex-export-redacted, personal-health-records)
+/skills/                  OpenClaw skill definitions (getting-started, curatr, fhir-r6-guardrails, phi-redaction, fhir-upstream-proxy, fasten-connect, healthex-export, healthex-export-redacted, personal-health-records). Also surfaced at /skills (auto-indexed from frontmatter).
 /exports/                 Output directory for export_healthex.py bundles (gitignored)
 /templates/               Jinja2 templates (base.html, index.html, r6_dashboard.html)
 /static/css/              Dashboard styles (r6-dashboard.css)
 /static/js/               Dashboard JavaScript (r6-dashboard.js)
-/tests/                   Python tests (482 passing) — conftest.py + test_r6_routes, test_r6_dashboard, test_context_builder, test_fhir_proxy, test_us_core_r4, test_curatr, test_bot_commands, test_command_center, test_export_healthex (legacy), test_healthclaw_redact (MCP export + redaction), test_import_healthex, test_kristy_watcher, test_public_fhir_servers, test_wearables
+/tests/                   Python tests (506 passing) — conftest.py + test_r6_routes, test_r6_dashboard, test_context_builder, test_fhir_proxy, test_us_core_r4, test_curatr, test_bot_commands, test_command_center, test_export_healthex (legacy), test_healthclaw_redact (MCP export + redaction), test_import_healthex, test_kristy_watcher, test_public_fhir_servers, test_wearables, test_subscribe (Resend signup + welcome email), test_skills_page (/skills route)
 /e2e/                     Playwright end-to-end tests (landing.spec.ts, dashboard.spec.ts)
 /.github/workflows/       CI configuration (ci.yml)
 /.claude/rules/           Claude Code rules (build.md, security.md)
@@ -198,6 +200,17 @@ The landing page form (`#subscribe-form`) POSTs to `/api/subscribe`, which calls
 `@healthclaw.io` aliases (privacy/security/legal). Duplicates surface as a 200
 with `already_subscribed: true` so the UI shows a friendly "already on the list"
 message rather than an error.
+
+After a fresh contact is created (Resend 200/201), `_send_welcome_email()` fires
+a transactional email via `POST https://api.resend.com/emails` with
+`static/healthclaw-quickstart.pdf` base64-attached. HTML + plaintext fallback,
+subject "Your HealthClaw quickstart is here". Failures (5xx, network) are
+logged and swallowed — the contact is the load-bearing thing and is already
+saved by the time email fires. Duplicates do **not** trigger a re-send.
+
+The PDF is the build output of `scripts/build_quickstart_pdf.py` (reportlab,
+14 pages, Path A non-technical + Path B self-host). Re-run that script to
+refresh the artifact when content changes.
 
 ### MCP Orchestrator (`services/agent-orchestrator/`)
 
@@ -374,6 +387,7 @@ When `FASTEN_PUBLIC_KEY` is set, the dashboard shows a live `<fasten-stitch-elem
 | `convert_fasten.py` | Convert Fasten Health export format (`providers[].fhir.ResourceType[]`) to a FHIR transaction Bundle. De-duplicates by `(resourceType, id)` using `meta.lastUpdated`. |
 | `demo_e2e.sh` | End-to-end gate test: liveness → seed → read with redaction → audit trail → cross-tenant isolation → curatr evaluate → human-in-the-loop. Exits 0 if all gates pass. Requires Flask (:5000) running. |
 | `smoke_test.py` | Standalone (no pytest) smoke check for `export_healthex_mcp.py` + `healthclaw_redact.py` against a mocked MCP session. |
+| `build_quickstart_pdf.py` | Source of truth for `static/healthclaw-quickstart.pdf` (the downloadable quickstart guide attached to subscribe welcome emails). Reportlab-based, 14 pages, two parallel paths (A: chat-only via claude.ai + HealthEx, B: full self-host). Re-run to refresh. |
 
 Fasten Health exports are **not** standard FHIR Bundles — they use `providers[].fhir.ResourceType[]` structure. Always run `convert_fasten.py` before `import_healthex.py` when working with Fasten exports.
 
