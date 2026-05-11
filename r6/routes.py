@@ -37,7 +37,15 @@ from r6.health_compliance import (
     add_disclaimer, enforce_human_in_loop, deidentify_resource,
     export_audit_trail, MEDICAL_DISCLAIMER
 )
-from r6.fhir_proxy import get_proxy, is_proxy_enabled
+from r6.fhir_proxy import (
+    get_proxy,
+    get_proxy_for_request,
+    is_proxy_enabled,
+    is_sharp_context_active,
+    close_request_proxy,
+    SHARP_SERVER_URL_HEADER,
+    SHARP_PATIENT_ID_HEADER,
+)
 from r6.curatr import (
     CuratrEngine,
     apply_fix as _curatr_apply_fix,
@@ -56,6 +64,10 @@ register_oauth_routes(r6_blueprint)
 
 # Register rate limiting
 rate_limit_middleware(r6_blueprint)
+
+# SHARP-on-MCP: close any per-request upstream proxy created from
+# X-FHIR-Server-URL / X-FHIR-Access-Token headers.
+r6_blueprint.teardown_request(close_request_proxy)
 
 # R6 version identifier aligned with ballot build
 R6_FHIR_VERSION = '6.0.0-ballot3'
@@ -111,6 +123,16 @@ def enforce_tenant_id():
     if '/mcp-apps/' in request.path:
         return None
     tenant_id = request.headers.get('X-Tenant-Id')
+    # SHARP-on-MCP: requests bearing X-FHIR-Server-URL carry their own
+    # FHIR-level identity (SMART access token). Synthesize a stable tenant
+    # from the upstream URL when X-Tenant-Id is omitted so audit + guardrails
+    # still scope correctly per SHARP context.
+    if not tenant_id and is_sharp_context_active():
+        import hashlib
+        sharp_url = (request.headers.get(SHARP_SERVER_URL_HEADER) or '').strip()
+        digest = hashlib.sha256(sharp_url.encode('utf-8')).hexdigest()[:16]
+        tenant_id = f'sharp-{digest}'
+        request.environ['HTTP_X_TENANT_ID'] = tenant_id
     if not tenant_id:
         return jsonify({
             'resourceType': 'OperationOutcome',
@@ -278,7 +300,7 @@ def create_resource(resource_type):
                                   'Resource id must match [A-Za-z0-9\\-.]{1,64}'), 400
 
     # --- Upstream proxy mode: create on real FHIR server ---
-    proxy = get_proxy()
+    proxy = get_proxy_for_request()
     if proxy:
         result, status_code = proxy.create(resource_type, body)
         if result and status_code in (200, 201):
@@ -338,7 +360,7 @@ def read_resource(resource_type, resource_id):
     tenant_id = request.headers.get('X-Tenant-Id')
 
     # --- Upstream proxy mode: fetch from real FHIR server ---
-    proxy = get_proxy()
+    proxy = get_proxy_for_request()
     if proxy:
         fhir_json = proxy.read(resource_type, resource_id)
         if not fhir_json:
@@ -447,7 +469,7 @@ def update_resource(resource_type, resource_id):
         return jsonify(validation_result['operation_outcome']), 422
 
     # --- Upstream proxy mode: update on real FHIR server ---
-    proxy = get_proxy()
+    proxy = get_proxy_for_request()
     if proxy:
         result, status_code = proxy.update(resource_type, resource_id, body, if_match)
         if result and status_code in (200, 201):
@@ -512,7 +534,7 @@ def search_resources(resource_type):
     tenant_id = request.headers.get('X-Tenant-Id')
 
     # --- Upstream proxy mode: forward search to real FHIR server ---
-    proxy = get_proxy()
+    proxy = get_proxy_for_request()
     if proxy:
         # Forward all query params to upstream (patient, code, status, _count, etc.)
         params = dict(request.args)

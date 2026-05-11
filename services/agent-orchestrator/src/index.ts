@@ -52,7 +52,7 @@ app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader(
     "Access-Control-Allow-Headers",
-    "Content-Type, Authorization, X-Tenant-Id, X-Step-Up-Token, X-Agent-Id, X-Human-Confirmed, Mcp-Session-Id"
+    "Content-Type, Authorization, X-Tenant-Id, X-Step-Up-Token, X-Agent-Id, X-Human-Confirmed, Mcp-Session-Id, X-FHIR-Server-URL, X-FHIR-Access-Token, X-Patient-ID"
   );
   res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
   if (req.method === "OPTIONS") {
@@ -103,6 +103,15 @@ function extractHeaders(req: express.Request): Record<string, string> {
   if (typeof auth === "string") h["authorization"] = auth;
   const humanConfirmed = req.headers["x-human-confirmed"];
   if (typeof humanConfirmed === "string") h["x-human-confirmed"] = humanConfirmed;
+  // SHARP-on-MCP context headers (Standardised Healthcare Agent Remote Protocol).
+  // The agent host forwards the FHIR base URL + SMART access token on every call;
+  // this server propagates them to Flask which builds a per-request upstream proxy.
+  const fhirServerUrl = req.headers["x-fhir-server-url"];
+  if (typeof fhirServerUrl === "string") h["x-fhir-server-url"] = fhirServerUrl;
+  const fhirAccessToken = req.headers["x-fhir-access-token"];
+  if (typeof fhirAccessToken === "string") h["x-fhir-access-token"] = fhirAccessToken;
+  const patientId = req.headers["x-patient-id"];
+  if (typeof patientId === "string") h["x-patient-id"] = patientId;
   return h;
 }
 
@@ -113,10 +122,26 @@ function extractHeaders(req: express.Request): Record<string, string> {
 // tools/call handler re-extracts headers per-request and bypasses this factory,
 // so sessionHeaders is only meaningfully used on the SSE path.
 
+// SHARP-on-MCP capability — advertised in the initialize response so
+// SHARP-aware clients (Prompt Opinion, SMART-on-FHIR launchers) know to
+// forward X-FHIR-Server-URL / X-FHIR-Access-Token / X-Patient-ID on every call.
+const SHARP_CAPABILITIES = {
+  tools: {},
+  logging: {},
+  experimental: {
+    fhir_context_required: { required: true },
+    sharp: {
+      version: "1.0",
+      headers: ["X-FHIR-Server-URL", "X-FHIR-Access-Token", "X-Patient-ID"],
+      spec: "https://sharponmcp.com",
+    },
+  },
+};
+
 function createMCPServer(sessionHeaders: Record<string, string> = {}): Server {
   const server = new Server(
     { name: "healthclaw-guardrails", version: "1.0.0" },
-    { capabilities: { tools: {}, logging: {} } }
+    { capabilities: SHARP_CAPABILITIES }
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
@@ -142,6 +167,20 @@ function createMCPServer(sessionHeaders: Record<string, string> = {}): Server {
     if (typeof toolArgs._authorization === "string") {
       toolHeaders["authorization"] = toolArgs._authorization as string;
       delete toolArgs._authorization;
+    }
+    // SHARP-on-MCP tool-arg overrides (Claude Desktop & stdio clients can't
+    // set HTTP headers, so they pass SHARP context as underscored tool args).
+    if (typeof toolArgs._fhirServerUrl === "string") {
+      toolHeaders["x-fhir-server-url"] = toolArgs._fhirServerUrl as string;
+      delete toolArgs._fhirServerUrl;
+    }
+    if (typeof toolArgs._fhirAccessToken === "string") {
+      toolHeaders["x-fhir-access-token"] = toolArgs._fhirAccessToken as string;
+      delete toolArgs._fhirAccessToken;
+    }
+    if (typeof toolArgs._patientId === "string") {
+      toolHeaders["x-patient-id"] = toolArgs._patientId as string;
+      delete toolArgs._patientId;
     }
 
     const result = await fhirTools.executeTool(name, toolArgs, toolHeaders);
@@ -204,7 +243,7 @@ app.post("/mcp", async (req, res) => {
           id,
           result: {
             protocolVersion: negotiatedVersion,
-            capabilities: { tools: {}, logging: {} },
+            capabilities: SHARP_CAPABILITIES,
             serverInfo: { name: "healthclaw-guardrails", version: "1.0.0" },
           },
         });
@@ -418,6 +457,12 @@ app.get("/health", (_req, res) => {
     cors: {
       mode: ALLOWED_ORIGINS.length > 0 ? "allowlist" : "deny-all",
       allowedOrigins: ALLOWED_ORIGINS.length,
+    },
+    sharp: {
+      compliant: true,
+      version: "1.0",
+      headers: ["X-FHIR-Server-URL", "X-FHIR-Access-Token", "X-Patient-ID"],
+      spec: "https://sharponmcp.com",
     },
     timestamp: new Date().toISOString(),
   });

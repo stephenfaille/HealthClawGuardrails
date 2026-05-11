@@ -539,6 +539,12 @@ export class FHIRTools {
     if (headers?.["x-step-up-token"]) fwdHeaders["X-Step-Up-Token"] = headers["x-step-up-token"];
     if (headers?.["x-agent-id"]) fwdHeaders["X-Agent-Id"] = headers["x-agent-id"];
     if (headers?.["authorization"]) fwdHeaders["Authorization"] = headers["authorization"];
+    // SHARP-on-MCP context propagation: forward FHIR base URL + SMART access
+    // token + optional patient banner so Flask can build a per-request
+    // upstream proxy targeting the agent host's FHIR endpoint.
+    if (headers?.["x-fhir-server-url"]) fwdHeaders["X-FHIR-Server-URL"] = headers["x-fhir-server-url"];
+    if (headers?.["x-fhir-access-token"]) fwdHeaders["X-FHIR-Access-Token"] = headers["x-fhir-access-token"];
+    if (headers?.["x-patient-id"]) fwdHeaders["X-Patient-ID"] = headers["x-patient-id"];
 
     switch (toolName) {
       case "context_get":

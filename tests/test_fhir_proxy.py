@@ -255,7 +255,7 @@ class TestProxyRouteIntegration:
             'telecom': [{'system': 'phone', 'value': '312-555-9999'}],
         }
 
-        with patch('r6.routes.get_proxy') as mock_get:
+        with patch('r6.routes.get_proxy_for_request') as mock_get:
             mock_proxy = MagicMock()
             mock_proxy.read.return_value = upstream_patient
             mock_get.return_value = mock_proxy
@@ -277,7 +277,7 @@ class TestProxyRouteIntegration:
         """Read returns 404 when upstream returns nothing."""
         os.environ['FHIR_UPSTREAM_URL'] = 'https://hapi.fhir.org/baseR4'
 
-        with patch('r6.routes.get_proxy') as mock_get:
+        with patch('r6.routes.get_proxy_for_request') as mock_get:
             mock_proxy = MagicMock()
             mock_proxy.read.return_value = None
             mock_get.return_value = mock_proxy
@@ -309,7 +309,7 @@ class TestProxyRouteIntegration:
             ],
         }
 
-        with patch('r6.routes.get_proxy') as mock_get:
+        with patch('r6.routes.get_proxy_for_request') as mock_get:
             mock_proxy = MagicMock()
             mock_proxy.search.return_value = upstream_bundle
             mock_get.return_value = mock_proxy
@@ -375,7 +375,7 @@ class TestProxyRouteIntegration:
             'name': [{'family': 'NewPatient'}],
         }
 
-        with patch('r6.routes.get_proxy') as mock_get:
+        with patch('r6.routes.get_proxy_for_request') as mock_get:
             mock_proxy = MagicMock()
             mock_proxy.create.return_value = (
                 {'resourceType': 'Patient', 'id': 'server-assigned-id',

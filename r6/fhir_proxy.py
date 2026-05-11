@@ -367,3 +367,105 @@ def is_proxy_enabled() -> bool:
         os.environ.get('FHIR_UPSTREAM_URL', '').strip()
         or os.environ.get('MEDPLUM_BASE_URL', '').strip()
     )
+
+
+# ---------------------------------------------------------------------------
+# SHARP-on-MCP support (Standardised Healthcare Agent Remote Protocol)
+# ---------------------------------------------------------------------------
+#
+# Per the SHARP spec the MCP server never runs an OAuth dance itself: the
+# agent host obtains a SMART-on-FHIR access token and forwards it on every
+# call via HTTP headers, alongside the target FHIR base URL.  This lets a
+# single HealthClaw deployment guard any SMART-launched FHIR endpoint
+# (Epic, Cerner, MEDITECH, HAPI, SMART Health IT, ...) without re-config.
+#
+# Headers (consumed before the request reaches Flask route handlers):
+#   X-FHIR-Server-URL  — upstream FHIR base, e.g. https://hapi.fhir.org/baseR4
+#   X-FHIR-Access-Token — bearer token (raw or with "Bearer " prefix)
+#   X-Patient-ID       — optional patient banner / launch context
+#
+# When these headers are present we build a transient proxy for that one
+# request, applying the full guardrail stack (redaction, audit, disclaimers,
+# URL rewriting) on top of the SHARP-supplied upstream.  When absent, the
+# server falls back to the singleton proxy configured via env vars, or to
+# pure local mode.
+
+SHARP_SERVER_URL_HEADER = 'X-FHIR-Server-URL'
+SHARP_ACCESS_TOKEN_HEADER = 'X-FHIR-Access-Token'
+SHARP_PATIENT_ID_HEADER = 'X-Patient-ID'
+
+
+def make_sharp_proxy(server_url: str,
+                     access_token: str | None,
+                     local_base_url: str = '') -> FHIRUpstreamProxy:
+    """Create a per-request FHIR proxy from SHARP context headers."""
+    proxy = FHIRUpstreamProxy(server_url, local_base_url)
+    if access_token:
+        token = access_token.strip()
+        if token.lower().startswith('bearer '):
+            token = token[7:].strip()
+        proxy._client.headers['Authorization'] = f'Bearer {token}'
+    return proxy
+
+
+def get_proxy_for_request() -> FHIRUpstreamProxy | None:
+    """
+    Return the proxy for the current request.
+
+    Priority:
+      1. SHARP headers (X-FHIR-Server-URL) — build a transient per-request proxy
+      2. Singleton env-var proxy (FHIR_UPSTREAM_URL / MEDPLUM_BASE_URL)
+      3. None (local mode)
+
+    The transient proxy is cached on flask.g and closed in the teardown handler.
+    """
+    try:
+        from flask import g, request, has_request_context
+    except ImportError:  # pragma: no cover - Flask is a hard dep, defensive only
+        return get_proxy()
+
+    if not has_request_context():
+        return get_proxy()
+
+    cached = getattr(g, '_sharp_proxy', None)
+    if cached is not None:
+        return cached
+
+    server_url = (request.headers.get(SHARP_SERVER_URL_HEADER) or '').strip()
+    if server_url:
+        access_token = (request.headers.get(SHARP_ACCESS_TOKEN_HEADER) or '').strip() or None
+        local_base = os.environ.get('FHIR_LOCAL_BASE_URL', '').strip()
+        proxy = make_sharp_proxy(server_url, access_token, local_base)
+        g._sharp_proxy = proxy
+        return proxy
+
+    return get_proxy()
+
+
+def is_sharp_context_active() -> bool:
+    """True when the current request carries SHARP context headers."""
+    try:
+        from flask import request, has_request_context
+    except ImportError:  # pragma: no cover
+        return False
+    if not has_request_context():
+        return False
+    return bool((request.headers.get(SHARP_SERVER_URL_HEADER) or '').strip())
+
+
+def close_request_proxy(_exc=None):
+    """Flask teardown handler — close any SHARP per-request proxy on flask.g."""
+    try:
+        from flask import g
+    except ImportError:  # pragma: no cover
+        return
+    proxy = getattr(g, '_sharp_proxy', None)
+    if proxy is not None:
+        try:
+            proxy.close()
+        except Exception:  # pragma: no cover - defensive
+            pass
+        try:
+            delattr(g, '_sharp_proxy')
+        except AttributeError:
+            pass
