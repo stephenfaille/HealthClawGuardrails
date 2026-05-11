@@ -423,6 +423,41 @@
   </div>
 </div>
 
+<!-- ═══ VIDEO WALKTHROUGHS ═══ -->
+<div class="section" style="padding-top:64px" id="videos">
+  <div class="section-header fade-up">
+    <div class="section-tag" style="color:var(--cyan)">See it in action</div>
+    <h2 class="section-title">Watch HealthClaw guard a live agent</h2>
+    <p class="section-desc">A 3-minute showcase built for the PromptOpinion Agents Assemble Challenge, plus a 5-minute deep-dive for engineers who want the architecture story.</p>
+  </div>
+
+  <div class="fade-up" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:24px;max-width:1100px;margin:32px auto 0">
+    <div style="background:rgba(13,17,23,0.6);border:1px solid rgba(34,211,238,0.18);border-radius:12px;overflow:hidden">
+      <video controls preload="metadata" playsinline style="display:block;width:100%;height:auto;background:#000" poster="">
+        <source src="{{ url_for('static', filename='videos/healthclaw-3min.mp4') }}" type="video/mp4">
+        Your browser does not support the video tag. <a href="{{ url_for('static', filename='videos/healthclaw-3min.mp4') }}" style="color:var(--cyan)">Download the MP4</a>.
+      </video>
+      <div style="padding:16px 18px 18px">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--cyan);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px">3-minute demo &middot; Devpost submission</div>
+        <div style="font-size:15.5px;font-weight:600;color:var(--white);margin-bottom:6px">Agents Assemble Challenge showcase</div>
+        <p style="color:var(--gray-dim);font-size:13.5px;line-height:1.6;margin:0">An AI agent calls HealthClaw FHIR tools; you see PHI redaction, audit emission, and the synthetic-data disclaimer fire in real time.</p>
+      </div>
+    </div>
+
+    <div style="background:rgba(13,17,23,0.6);border:1px solid rgba(52,211,153,0.18);border-radius:12px;overflow:hidden">
+      <video controls preload="metadata" playsinline style="display:block;width:100%;height:auto;background:#000" poster="">
+        <source src="{{ url_for('static', filename='videos/healthclaw-5min.mp4') }}" type="video/mp4">
+        Your browser does not support the video tag. <a href="{{ url_for('static', filename='videos/healthclaw-5min.mp4') }}" style="color:var(--green)">Download the MP4</a>.
+      </video>
+      <div style="padding:16px 18px 18px">
+        <div style="font-family:var(--font-mono);font-size:11px;color:var(--green);letter-spacing:0.04em;text-transform:uppercase;margin-bottom:6px">5-minute deep dive</div>
+        <div style="font-size:15.5px;font-weight:600;color:var(--white);margin-bottom:6px">Architecture &amp; SHARP-on-MCP walkthrough</div>
+        <p style="color:var(--gray-dim);font-size:13.5px;line-height:1.6;margin:0">How HealthClaw forwards SMART-on-FHIR tokens via SHARP headers, applies the guardrail stack, and stays compatible with any EHR &mdash; with the code paths called out.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══ COMPILED TRUTH (flagship in v1.2.0) ═══ -->
 <div style="background:linear-gradient(180deg,rgba(34,211,238,0.045) 0%,transparent 100%);border-top:1px solid rgba(34,211,238,0.08);border-bottom:1px solid rgba(34,211,238,0.08)">
   <div class="section" style="padding-top:72px">
