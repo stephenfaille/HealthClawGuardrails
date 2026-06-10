@@ -4,20 +4,35 @@
 Handles the consumer-consent dance, exchanges the authorization code for
 tokens, and caches them securely for export_healthbankone_mcp.py to reuse.
 
+Health Bank One OAuth endpoints (confirmed 2026-06-10):
+
+  Issuer:        https://oauth.app.healthbankone.com
+  Authorization: https://oauth.app.healthbankone.com/authorize
+  Token:         https://oauth.app.healthbankone.com/token
+  Revocation:    https://oauth.app.healthbankone.com/revoke
+  Registration:  https://oauth.app.healthbankone.com/register (DCR / RFC 7591)
+  MCP server:    https://mcp.app.healthbankone.com/mcp
+
+Auth model: PUBLIC client — no client_secret for self-access (Bootstrap).
+PKCE S256 required. Multi-patient access requires Dynamic Client Registration
+(RFC 7591) to get a client_id for the commercial tier.
+
 Subcommands:
 
   authorize   -- open browser → wait for callback → exchange code → cache tokens
   status      -- show cached token state and expiry
-  revoke      -- call HBO revoke endpoint (if set) and delete cached tokens
+  revoke      -- call HBO revoke endpoint and delete cached tokens
   refresh     -- force a token refresh using the cached refresh_token
+  register    -- run Dynamic Client Registration (RFC 7591) for multi-patient
 
-Environment variables (all configurable, none required until HBO gives us URLs):
+Environment variables (defaults point at the live HBO endpoints):
 
-  HBO_CLIENT_ID               Required for authorize
-  HBO_CLIENT_SECRET           Required for authorize (omit if public client)
-  HBO_AUTHORIZATION_ENDPOINT  Required for authorize
-  HBO_TOKEN_ENDPOINT          Required for authorize + refresh
-  HBO_REVOCATION_ENDPOINT     Optional, used by revoke
+  HBO_CLIENT_ID               For multi-patient only (omit for self-access)
+  HBO_CLIENT_SECRET           Not used by HBO (public client)
+  HBO_AUTHORIZATION_ENDPOINT  Default: https://oauth.app.healthbankone.com/authorize
+  HBO_TOKEN_ENDPOINT          Default: https://oauth.app.healthbankone.com/token
+  HBO_REVOCATION_ENDPOINT     Default: https://oauth.app.healthbankone.com/revoke
+  HBO_REGISTRATION_ENDPOINT   Default: https://oauth.app.healthbankone.com/register
   HBO_REDIRECT_URI            Default: http://localhost:8742/hbo/callback
   HBO_SCOPES                  Space-separated; default: openid offline_access
   HBO_TOKEN_CACHE             Path to token JSON; default: ~/.healthclaw/hbo_tokens.json
@@ -27,6 +42,7 @@ Usage:
   python scripts/healthbankone_oauth.py authorize --tenant-id ev-personal-hbo
   python scripts/healthbankone_oauth.py status
   python scripts/healthbankone_oauth.py revoke
+  python scripts/healthbankone_oauth.py register --client-name "HealthClaw"
 """
 
 from __future__ import annotations
@@ -146,17 +162,19 @@ def _wait_for_callback(port: int, timeout: int) -> dict:
 
 # ── Token exchange ─────────────────────────────────────────────────────────────
 
+_HBO_AUTH_ENDPOINT = "https://oauth.app.healthbankone.com/authorize"
+_HBO_TOKEN_ENDPOINT = "https://oauth.app.healthbankone.com/token"
+_HBO_REVOKE_ENDPOINT = "https://oauth.app.healthbankone.com/revoke"
+_HBO_REGISTER_ENDPOINT = "https://oauth.app.healthbankone.com/register"
+
+
 def _exchange_code(code: str, code_verifier: str, redirect_uri: str,
                    tenant_id: str) -> dict:
     import httpx
 
-    token_endpoint = os.environ.get("HBO_TOKEN_ENDPOINT", "").strip()
-    if not token_endpoint:
-        raise ValueError("HBO_TOKEN_ENDPOINT is not set")
-
+    token_endpoint = os.environ.get("HBO_TOKEN_ENDPOINT", _HBO_TOKEN_ENDPOINT).strip()
+    # HBO is a public client — client_id optional for self-access Bootstrap tier
     client_id = os.environ.get("HBO_CLIENT_ID", "").strip()
-    if not client_id:
-        raise ValueError("HBO_CLIENT_ID is not set")
 
     data: dict[str, str] = {
         "grant_type": "authorization_code",
@@ -192,9 +210,7 @@ def _exchange_code(code: str, code_verifier: str, redirect_uri: str,
 def _do_refresh(cached: dict) -> dict:
     import httpx
 
-    token_endpoint = os.environ.get("HBO_TOKEN_ENDPOINT", "").strip()
-    if not token_endpoint:
-        raise ValueError("HBO_TOKEN_ENDPOINT is not set")
+    token_endpoint = os.environ.get("HBO_TOKEN_ENDPOINT", _HBO_TOKEN_ENDPOINT).strip()
 
     refresh_token = cached.get("refresh_token")
     if not refresh_token:
@@ -228,42 +244,72 @@ def _do_refresh(cached: dict) -> dict:
 # ── revoke ─────────────────────────────────────────────────────────────────────
 
 def _do_revoke(cached: dict) -> None:
-    revoke_endpoint = os.environ.get("HBO_REVOCATION_ENDPOINT", "").strip()
+    revoke_endpoint = os.environ.get(
+        "HBO_REVOCATION_ENDPOINT", _HBO_REVOKE_ENDPOINT).strip()
     token = cached.get("access_token") or cached.get("refresh_token")
-    if revoke_endpoint and token:
+    if token:
         import httpx
         client_id = os.environ.get("HBO_CLIENT_ID", "").strip()
         data: dict[str, str] = {"token": token}
         if client_id:
             data["client_id"] = client_id
-        secret = os.environ.get("HBO_CLIENT_SECRET", "").strip()
-        if secret:
-            data["client_secret"] = secret
         try:
             resp = httpx.post(revoke_endpoint, data=data, timeout=15)
             resp.raise_for_status()
             print("revocation acknowledged by server")
         except Exception as exc:
             print(f"warning: revocation request failed: {exc}", file=sys.stderr)
-    else:
-        print("HBO_REVOCATION_ENDPOINT not set — tokens deleted locally only")
     _delete_cached()
 
 
 # ── commands ───────────────────────────────────────────────────────────────────
 
-def cmd_authorize(args: argparse.Namespace) -> int:
-    auth_endpoint = os.environ.get("HBO_AUTHORIZATION_ENDPOINT", "").strip()
-    if not auth_endpoint:
-        print("error: HBO_AUTHORIZATION_ENDPOINT is not set.\n"
-              "  Set it to the URL from the Health Bank One developer portal.",
-              file=sys.stderr)
-        return 2
+def cmd_register(args: argparse.Namespace) -> int:
+    """Dynamic Client Registration (RFC 7591) — multi-patient / commercial tier."""
+    import httpx
 
+    reg_endpoint = os.environ.get(
+        "HBO_REGISTRATION_ENDPOINT", _HBO_REGISTER_ENDPOINT).strip()
+
+    payload = {
+        "client_name": args.client_name,
+        "redirect_uris": [
+            os.environ.get("HBO_REDIRECT_URI", DEFAULT_REDIRECT_URI).strip()
+        ],
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "token_endpoint_auth_method": "none",
+        "scope": os.environ.get("HBO_SCOPES", DEFAULT_SCOPES).strip(),
+    }
+    if args.contacts:
+        payload["contacts"] = [args.contacts]
+
+    print(f"Registering client at {reg_endpoint} ...")
+    try:
+        resp = httpx.post(reg_endpoint, json=payload, timeout=30)
+        resp.raise_for_status()
+        body = resp.json()
+    except Exception as exc:
+        print(f"error: registration failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"registered client_id: {body.get('client_id')}")
+    print(json.dumps(body, indent=2))
+
+    reg_cache = TOKEN_CACHE.parent / "hbo_client.json"
+    reg_cache.parent.mkdir(parents=True, exist_ok=True)
+    reg_cache.write_text(json.dumps(body, indent=2))
+    reg_cache.chmod(0o600)
+    print(f"\nclient registration saved to {reg_cache}")
+    print("Set HBO_CLIENT_ID=" + body.get("client_id", ""))
+    return 0
+
+
+def cmd_authorize(args: argparse.Namespace) -> int:
+    auth_endpoint = os.environ.get(
+        "HBO_AUTHORIZATION_ENDPOINT", _HBO_AUTH_ENDPOINT).strip()
+    # HBO Bootstrap is a public client — client_id not required for self-access
     client_id = os.environ.get("HBO_CLIENT_ID", "").strip()
-    if not client_id:
-        print("error: HBO_CLIENT_ID is not set.", file=sys.stderr)
-        return 2
 
     redirect_uri = os.environ.get("HBO_REDIRECT_URI", DEFAULT_REDIRECT_URI).strip()
     scopes = os.environ.get("HBO_SCOPES", DEFAULT_SCOPES).strip()
@@ -277,15 +323,16 @@ def cmd_authorize(args: argparse.Namespace) -> int:
     parsed = urllib.parse.urlparse(redirect_uri)
     port = parsed.port or 80
 
-    params = {
+    params: dict[str, str] = {
         "response_type": "code",
-        "client_id": client_id,
         "redirect_uri": redirect_uri,
         "scope": scopes,
         "state": state,
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
     }
+    if client_id:
+        params["client_id"] = client_id
     auth_url = f"{auth_endpoint}?{urllib.parse.urlencode(params)}"
 
     print(f"Opening authorization URL in browser:")
@@ -419,6 +466,13 @@ def main() -> int:
 
     sub.add_parser("refresh", help="Force a token refresh using cached refresh_token")
 
+    p_reg = sub.add_parser("register",
+                            help="Dynamic Client Registration (RFC 7591) — multi-patient")
+    p_reg.add_argument("--client-name", default="HealthClaw",
+                       help="Client name to register with HBO")
+    p_reg.add_argument("--contacts", default=None,
+                       help="Contact email for the client registration")
+
     args = parser.parse_args()
 
     if args.command == "authorize":
@@ -429,6 +483,8 @@ def main() -> int:
         return cmd_revoke(args)
     if args.command == "refresh":
         return cmd_refresh(args)
+    if args.command == "register":
+        return cmd_register(args)
     parser.print_help()
     return 1
 
