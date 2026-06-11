@@ -110,17 +110,22 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    background: var(--cyan);
+    background: #22d3ee;
     color: #0d1117;
     font-weight: 700;
-    font-size: 14px;
-    padding: 11px 24px;
+    font-size: 15px;
+    padding: 13px 28px;
     border-radius: 8px;
-    border: none;
+    border: 2px solid #22d3ee;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: 0.01em;
   }
-  .connect-btn:hover { opacity: 0.88; }
+  .connect-btn:hover {
+    background: #fff;
+    border-color: #fff;
+    color: #0d1117;
+  }
   .fasten-modal-backdrop {
     display: none;
     position: fixed;
@@ -199,7 +204,7 @@
     <button type="button" class="fasten-modal-close" id="close-stitch" title="Close">&times;</button>
     <iframe
       id="stitch-iframe"
-      src="https://embed.connect.fastenhealth.com/?publicId={{ fasten_public_key }}{% if tefca_mode %}&tefcaMode=true{% endif %}&externalId={{ tenant_id }}"
+      src="https://embed.connect.fastenhealth.com/?public-id={{ fasten_public_key }}{% if tefca_mode %}&tefca-mode=true&search-only=false{% endif %}&external-id={{ tenant_id }}"
       allow="camera; microphone; clipboard-write"
     ></iframe>
   </div>
