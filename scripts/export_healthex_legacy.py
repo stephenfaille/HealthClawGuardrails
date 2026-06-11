@@ -8,8 +8,8 @@ write a transaction bundle ready for import_healthex.py.
 
 Usage:
     python scripts/export_healthex_mcp.py \\
-        --patient-id ev-2026 \\
-        --tenant-id ev-personal \\
+        --patient-id my-patient-id \\
+        --tenant-id my-tenant \\
         --output exports/healthex-$(date +%Y-%m-%d).json \\
         [--import] \\
         [--step-up-secret $STEP_UP_SECRET] \\
@@ -879,9 +879,9 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    p.add_argument("--patient-id", default="ev-2026",
+    p.add_argument("--patient-id", default="my-patient-id",
                    help="HealthClaw patient identifier (injected as canonical identifier)")
-    p.add_argument("--tenant-id", default="ev-personal",
+    p.add_argument("--tenant-id", default="my-tenant",
                    help="HealthClaw tenant to import into")
     p.add_argument("--output", default=None,
                    help="Output bundle path (default: exports/healthex-YYYY-MM-DD.json)")
@@ -925,7 +925,7 @@ def main():
     # --- pull data ----------------------------------------------------------
     if args.dry_run:
         logger.warning("--dry-run: building empty bundle, skipping HealthEx pull")
-        all_resources = [map_patient(args.patient_id, "male", "1981-05-29")]
+        all_resources = [map_patient(args.patient_id, "male", "1970-01-01")]
     else:
         if not args.auth_token:
             logger.error(
@@ -940,7 +940,7 @@ def main():
         logger.info("Pulling health summary...")
         summary_text = client.get_health_summary()
         gender = "male"
-        dob = "1981-05-29"
+        dob = "1970-01-01"
         dob_m = re.search(r"DOB\s+([\d]{4}-[\d]{2}-[\d]{2})", summary_text)
         if dob_m:
             dob = dob_m.group(1)

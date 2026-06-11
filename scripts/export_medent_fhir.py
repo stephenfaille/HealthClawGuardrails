@@ -11,9 +11,9 @@ Output format: JSON file with structure compatible with import_healthex.py:
   }
 
 Usage:
-  python scripts/export_medent_fhir.py --tenant-id ev-personal
-  python scripts/export_medent_fhir.py --tenant-id ev-personal --output ~/medent.json
-  python scripts/export_medent_fhir.py --tenant-id ev-personal --no-redact  # dev only
+  python scripts/export_medent_fhir.py --tenant-id my-tenant
+  python scripts/export_medent_fhir.py --tenant-id my-tenant --output ~/medent.json
+  python scripts/export_medent_fhir.py --tenant-id my-tenant --no-redact  # dev only
 """
 
 from __future__ import annotations
@@ -163,7 +163,7 @@ def _fetch_resource(fhir_base: str, resource_type: str, patient_mrn: str,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tenant-id", default="ev-personal")
+    parser.add_argument("--tenant-id", default="my-tenant")
     parser.add_argument("--output", default=None,
                         help="Output path (default: ~/.healthclaw/exports/medent-<date>.json)")
     parser.add_argument("--no-redact", action="store_true",

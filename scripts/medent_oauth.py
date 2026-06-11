@@ -40,9 +40,9 @@ Environment variables:
   MEDENT_CLIENT_CACHE    Default: ~/.healthclaw/medent_client.json
 
 Usage:
-  python scripts/medent_oauth.py register --contacts eugene.vestel@gmail.com
+  python scripts/medent_oauth.py register --contacts your@email.com
   python scripts/medent_oauth.py practices
-  python scripts/medent_oauth.py authorize --practice-id 12345 --tenant-id ev-personal
+  python scripts/medent_oauth.py authorize --practice-id 12345 --tenant-id my-tenant
   python scripts/medent_oauth.py status
   python scripts/medent_oauth.py refresh
 """
@@ -239,7 +239,7 @@ def cmd_register(args: argparse.Namespace) -> int:
     print()
     print("Next steps:")
     print("  python scripts/medent_oauth.py practices")
-    print("  python scripts/medent_oauth.py authorize --practice-id <id> --tenant-id ev-personal")
+    print("  python scripts/medent_oauth.py authorize --practice-id <id> --tenant-id my-tenant")
     return 0
 
 
@@ -495,7 +495,7 @@ def main() -> int:
     p_reg = sub.add_parser("register", help="One-time Dynamic Client Registration")
     p_reg.add_argument("--client-name", default="HealthClaw",
                        help="App name — must be unique on MEDENT (default: HealthClaw)")
-    p_reg.add_argument("--contacts", default="eugene.vestel@gmail.com",
+    p_reg.add_argument("--contacts", default="your@email.com",
                        help="Contact email for registration")
 
     sub.add_parser("practices", help="List FHIR-enabled MEDENT practices")
@@ -503,7 +503,7 @@ def main() -> int:
     p_auth = sub.add_parser("authorize", help="Patient Standalone Launch OAuth flow")
     p_auth.add_argument("--practice-id", default=None,
                         help="MEDENT practice ID (find via 'practices')")
-    p_auth.add_argument("--tenant-id", default="ev-personal",
+    p_auth.add_argument("--tenant-id", default="my-tenant",
                         help="HealthClaw tenant to associate tokens with")
     p_auth.add_argument("--scopes", default=None,
                         help="Override MEDENT_SCOPES")

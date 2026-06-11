@@ -18,7 +18,7 @@ Env (loaded from ~/.kristy/env first, then process env):
   FAMILY_ALLOWED_DAYS     lowercase weekday names (default: sun,mon,tue,wed,thu,sat)
   COMMAND_CENTER_API      base URL (default: https://app.healthclaw.io/command-center/api)
   STEP_UP_SECRET          required — mints the write token
-  DEFAULT_TENANT          tenant id (default: ev-personal)
+  DEFAULT_TENANT          tenant id (default: desktop-demo)
   KRISTY_AGENT_ID         (default: kristy)
   DRY_RUN                 truthy → parse + detect but skip POSTs
 
@@ -414,7 +414,7 @@ def main() -> int:
         "COMMAND_CENTER_API",
         "https://app.healthclaw.io/command-center/api",
     ).rstrip("/")
-    tenant = os.environ.get("DEFAULT_TENANT", "ev-personal")
+    tenant = os.environ.get("DEFAULT_TENANT", "desktop-demo")
     agent_id = os.environ.get("KRISTY_AGENT_ID", "kristy")
     dry_run = bool(os.environ.get("DRY_RUN"))
 

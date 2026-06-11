@@ -10,12 +10,12 @@
 # Run from the laptop:
 #   bash scripts/bot_commands_install.sh
 # or override the remote:
-#   SSH_USER=coopeydoop SSH_HOST=192.168.5.121 bash scripts/bot_commands_install.sh
+#   SSH_USER=<your-username> SSH_HOST=<mac-mini-ip> bash scripts/bot_commands_install.sh
 
 set -euo pipefail
 
-SSH_USER="${SSH_USER:-coopeydoop}"
-SSH_HOST="${SSH_HOST:-192.168.5.121}"
+SSH_USER="${SSH_USER:-$(whoami)}"
+SSH_HOST="${SSH_HOST:-192.168.1.100}"
 REMOTE="${SSH_USER}@${SSH_HOST}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -14,8 +14,8 @@
 #   bash scripts/seed_openclaw_workspaces.sh
 
 set -euo pipefail
-SSH_USER="${SSH_USER:-coopeydoop}"
-SSH_HOST="${SSH_HOST:-192.168.5.121}"
+SSH_USER="${SSH_USER:-$(whoami)}"
+SSH_HOST="${SSH_HOST:-192.168.1.100}"
 REMOTE="${SSH_USER}@${SSH_HOST}"
 
 ssh -o BatchMode=yes -o ConnectTimeout=5 "$REMOTE" true \

@@ -286,7 +286,7 @@ Or run manually:
 # From your laptop, SSH'd into the Mac mini
 HEALTHEX_AUTH_TOKEN=<from-Claude.ai> STEP_UP_SECRET=<from-Railway> \
 python scripts/export_healthex_mcp.py \
-  --tenant-id ev-personal \
+  --tenant-id my-tenant \
   --output exports/healthex-$(date +%Y-%m-%d).json \
   --import
 ```

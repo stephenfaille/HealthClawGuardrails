@@ -458,10 +458,10 @@ class TestAccessControl:
 
     def test_generate_and_verify_roundtrip(self):
         from r6.command_center import access
-        token = access.generate_access_token("ev-personal", agent_id="sally")
+        token = access.generate_access_token("test-tenant", agent_id="sally")
         payload = access.verify_access_token(token)
         assert payload is not None
-        assert payload["tenant_id"] == "ev-personal"
+        assert payload["tenant_id"] == "test-tenant"
         assert payload["agent_id"] == "sally"
 
     def test_bad_token_returns_none(self):
@@ -472,15 +472,15 @@ class TestAccessControl:
     def test_build_dashboard_url_format(self):
         from r6.command_center import access
         url = access.build_dashboard_url(
-            "https://healthclaw.io", "ev-personal", agent_id="h"
+            "https://healthclaw.io", "test-tenant", agent_id="h"
         )
-        assert url.startswith("https://healthclaw.io/command-center?tenant=ev-personal&t=")
+        assert url.startswith("https://healthclaw.io/command-center?tenant=test-tenant&t=")
 
 
 class TestSignedLinkFlow:
 
     def test_private_tenant_requires_session(self, client):
-        resp = client.get("/command-center", query_string={"tenant": "ev-personal"})
+        resp = client.get("/command-center", query_string={"tenant": "private-tenant"})
         assert resp.status_code == 401
         assert b"Your personal health command center" in resp.data
 
@@ -490,13 +490,13 @@ class TestSignedLinkFlow:
 
     def test_valid_signed_link_logs_in_and_redirects(self, client):
         from r6.command_center import access
-        token = access.generate_access_token("ev-personal")
+        token = access.generate_access_token("test-tenant")
         resp = client.get("/command-center", query_string={"t": token})
         assert resp.status_code == 302
-        assert "ev-personal" in resp.headers["Location"]
+        assert "test-tenant" in resp.headers["Location"]
 
         # Session is now sticky — follow-up request works
-        resp2 = client.get("/command-center", query_string={"tenant": "ev-personal"})
+        resp2 = client.get("/command-center", query_string={"tenant": "test-tenant"})
         assert resp2.status_code == 200
 
     def test_expired_token_shows_error(self, client):
@@ -511,12 +511,12 @@ class TestSignedLinkFlow:
 
     def test_logout_clears_session(self, client):
         from r6.command_center import access
-        token = access.generate_access_token("ev-personal")
+        token = access.generate_access_token("private-tenant")
         client.get("/command-center", query_string={"t": token})  # login
 
         client.get("/command-center/logout")
         # Private tenant should now require auth again
-        resp = client.get("/command-center", query_string={"tenant": "ev-personal"})
+        resp = client.get("/command-center", query_string={"tenant": "private-tenant"})
         assert resp.status_code == 401
 
 
@@ -536,7 +536,7 @@ class TestGenerateLinkEndpoint:
     def test_private_tenant_requires_stepup(self, client):
         resp = client.post(
             "/command-center/api/generate-link",
-            json={"tenant_id": "ev-personal"},
+            json={"tenant_id": "private-tenant"},
         )
         assert resp.status_code == 401
 
@@ -561,7 +561,7 @@ class TestGenerateLinkEndpoint:
     def test_private_tenant_with_bad_stepup_rejected(self, client):
         resp = client.post(
             "/command-center/api/generate-link",
-            json={"tenant_id": "ev-personal"},
+            json={"tenant_id": "private-tenant"},
             headers={"X-Step-Up-Token": "not-a-real-token"},
         )
         assert resp.status_code == 401

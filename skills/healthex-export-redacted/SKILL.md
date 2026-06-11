@@ -36,23 +36,23 @@ export HEALTHEX_AUTH_TOKEN="$(security find-generic-password -s healthex -w)"
 
 # Default — all tools, local redaction, single JSON file
 python scripts/export_healthex_mcp.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --output exports/healthex-$(date +%Y-%m-%d).json
 
 # NDJSON (one line per FHIR resource — easier to diff / grep)
 python scripts/export_healthex_mcp.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --output exports/healthex-$(date +%Y-%m-%d).ndjson
 
 # Only the tools you need
 python scripts/export_healthex_mcp.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --output exports/labs-only.json \
     --tools get_labs get_conditions
 
 # Proxy mode — redact via a running HealthClaw guardrail server instead
 python scripts/export_healthex_mcp.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --output exports/snap.json \
     --redact-mode proxy \
     --healthclaw-url https://healthclaw.io

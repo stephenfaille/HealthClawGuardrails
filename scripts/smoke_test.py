@@ -30,8 +30,8 @@ CANNED_PAYLOADS = {
     "get_health_summary": {
         "resourceType": "Patient",
         "id": "pat-001",
-        "name": [{"given": ["Eugene"], "family": "Vestel", "text": "Eugene Vestel"}],
-        "birthDate": "1981-05-29",
+        "name": [{"given": ["Alex"], "family": "Johnson", "text": "Alex Johnson"}],
+        "birthDate": "1970-01-01",
         "gender": "male",
         "address": [{
             "line": ["123 Main St"],
@@ -47,7 +47,7 @@ CANNED_PAYLOADS = {
         "identifier": [
             {"system": "http://hospitals.example/mrn", "value": "MRN-77234-A"},
         ],
-        "text": {"status": "generated", "div": "<div>Eugene Vestel, 44yo male</div>"},
+        "text": {"status": "generated", "div": "<div>Alex Johnson, 44yo male</div>"},
     },
     "get_conditions": [
         {
@@ -59,7 +59,7 @@ CANNED_PAYLOADS = {
                  "display": "Diabetes mellitus type 2"},
             ]},
             "onsetDateTime": "2019-03-14",
-            "note": [{"text": "Patient Eugene Vestel reports worsening symptoms."}],
+            "note": [{"text": "Patient Alex Johnson reports worsening symptoms."}],
         },
     ],
     "get_labs": {
@@ -87,7 +87,7 @@ CANNED_PAYLOADS = {
     },
     "get_medications": [
         {
-            "patientName": "Eugene Vestel",
+            "patientName": "Alex Johnson",
             "ssn": "123-45-6789",
             "medication": "Metformin 500mg",
             "rxnorm": "860975",
@@ -259,7 +259,7 @@ def _run_integration_test(failures: list[str]) -> None:
                 "MRN absent from exported blob", failures)
         _assert("123-45-6789" not in text_blob,
                 "SSN absent from exported blob", failures)
-        _assert("Eugene Vestel" not in text_blob,
+        _assert("Alex Johnson" not in text_blob,
                 "full name absent from exported blob", failures)
         _assert("44054006" in text_blob,
                 "SNOMED code still present in exported blob", failures)

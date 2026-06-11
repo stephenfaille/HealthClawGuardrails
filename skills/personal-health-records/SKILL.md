@@ -9,7 +9,7 @@ description: >
   pull medical history, review lab results, check immunizations, identify care
   gaps, or export data to a personal FHIR store.
 version: 1.0.0
-author: Eugene Vestel (fhiriq.com)
+author: HealthClaw contributors
 license: MIT
 tools:
   required:

@@ -11,12 +11,12 @@ Quickstart the moment HBO hands you a URL + token:
 
     export HBO_MCP_URL=https://<their-host>/mcp
     export HBO_ACCESS_TOKEN=<token-from-call>      # or run healthbankone_oauth.py first
-    python scripts/export_healthbankone_mcp.py --tenant-id ev-personal-hbo --discover
+    python scripts/export_healthbankone_mcp.py --tenant-id my-tenant --discover
 
 `--discover` lists the server's tools, prints them, and calls every read-safe
 one with empty arguments. Once you know the real names, pin them:
 
-    python scripts/export_healthbankone_mcp.py --tenant-id ev-personal-hbo \\
+    python scripts/export_healthbankone_mcp.py --tenant-id my-tenant \\
         --tools health.summary health.medications health.conditions
 
 Token resolution order:

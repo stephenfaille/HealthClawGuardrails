@@ -287,7 +287,7 @@ def _icd9_condition() -> dict:
                 {"system": "http://hl7.org/fhir/sid/icd-9-cm", "code": "250.00", "display": "Diabetes mellitus"},
             ]
         },
-        "subject": {"reference": "Patient/pt-ev-hclaw"},
+        "subject": {"reference": "Patient/pt-test-hclaw"},
     }
 
 
@@ -297,7 +297,7 @@ def _psoriasis_condition() -> dict:
         "id": "cond-psoriasis",
         "clinicalStatus": {"coding": [{"system": "http://terminology.hl7.org/CodeSystem/condition-clinical", "code": "active"}]},
         "code": {"coding": [{"system": "http://snomed.info/sct", "code": "9014002"}]},
-        "subject": {"reference": "Patient/pt-ev-hclaw"},
+        "subject": {"reference": "Patient/pt-test-hclaw"},
     }
 
 
@@ -352,7 +352,7 @@ class TestCuratrPreTagger:
             _psoriasis_condition(),
             {"resourceType": "MedicationRequest", "id": "med-1", "status": "active",
              "intent": "order", "medicationCodeableConcept": {"text": "Methotrexate"},
-             "subject": {"reference": "Patient/pt-ev-hclaw"}},
+             "subject": {"reference": "Patient/pt-test-hclaw"}},
         ]
         tagger = CuratrPreTagger(resources)
         tagger.run()
@@ -382,16 +382,16 @@ class TestDeidentify:
     def test_phi_removed(self):
         patient = {
             "resourceType": "Patient",
-            "id": "pt-ev-hclaw",
+            "id": "pt-test-hclaw",
             "name": [{"family": "Vestel", "given": ["Eugene"]}],
             "telecom": [{"system": "phone", "value": "412-555-0100"}],
             "address": [{"line": ["123 Main St"], "city": "Pittsburgh", "state": "PA"}],
             "gender": "male",
-            "birthDate": "1981-05-29",
+            "birthDate": "1970-01-01",
             "photo": [{"url": "http://example.com/photo.jpg"}],
             "identifier": [{"system": "urn:mrn", "value": "MRN12345"}],
         }
-        result = deidentify_patient_controlled(patient, "ev-2026")
+        result = deidentify_patient_controlled(patient, "test-patient-id")
         assert "name" not in result
         assert "telecom" not in result
         assert "address" not in result
@@ -400,39 +400,39 @@ class TestDeidentify:
     def test_clinical_elements_preserved(self):
         patient = {
             "resourceType": "Patient",
-            "id": "pt-ev-hclaw",
+            "id": "pt-test-hclaw",
             "name": [{"family": "Vestel"}],
             "gender": "male",
-            "birthDate": "1981-05-29",
+            "birthDate": "1970-01-01",
         }
-        result = deidentify_patient_controlled(patient, "ev-2026")
+        result = deidentify_patient_controlled(patient, "test-patient-id")
         assert result["gender"] == "male"
-        assert result["birthDate"] == "1981-05-29"
+        assert result["birthDate"] == "1970-01-01"
 
     def test_healthclaw_identifier_injected(self):
-        patient = {"resourceType": "Patient", "id": "pt-ev-hclaw", "gender": "male", "birthDate": "1981-05-29"}
-        result = deidentify_patient_controlled(patient, "ev-2026")
+        patient = {"resourceType": "Patient", "id": "pt-test-hclaw", "gender": "male", "birthDate": "1970-01-01"}
+        result = deidentify_patient_controlled(patient, "test-patient-id")
         ids = result.get("identifier", [])
         assert any(i.get("system") == "https://healthclaw.io/patients" for i in ids)
 
     def test_mri_identifier_removed(self):
         patient = {
             "resourceType": "Patient",
-            "id": "pt-ev-hclaw",
+            "id": "pt-test-hclaw",
             "identifier": [
                 {"system": "urn:mrn", "value": "MRN12345"},
                 {"system": "urn:ssn", "value": "123-45-6789"},
             ],
             "gender": "male",
-            "birthDate": "1981-05-29",
+            "birthDate": "1970-01-01",
         }
-        result = deidentify_patient_controlled(patient, "ev-2026")
+        result = deidentify_patient_controlled(patient, "test-patient-id")
         for idf in result.get("identifier", []):
             assert idf.get("system") == "https://healthclaw.io/patients"
 
     def test_non_patient_resource_unchanged(self):
         obs = {"resourceType": "Observation", "id": "obs-1", "status": "final"}
-        result = deidentify_patient_controlled(obs, "ev-2026")
+        result = deidentify_patient_controlled(obs, "test-patient-id")
         assert result == obs
 
 
@@ -444,38 +444,38 @@ class TestBuildBundle:
 
     def test_entry_count(self):
         resources = [
-            map_patient("ev-2026", "male", "1981-05-29"),
+            map_patient("test-patient-id", "male", "1970-01-01"),
             map_condition({"Condition": "Psoriasis", "SNOMED": "9014002", "ICD10": "L40.9", "Date": "2018-09-17"}),
         ]
-        bundle = build_bundle(resources, "ev-2026")
+        bundle = build_bundle(resources, "test-patient-id")
         assert len(bundle["entry"]) == 2
 
     def test_bundle_type(self):
-        bundle = build_bundle([map_patient("ev-2026", "male", "1981-05-29")], "ev-2026")
+        bundle = build_bundle([map_patient("test-patient-id", "male", "1970-01-01")], "test-patient-id")
         assert bundle["resourceType"] == "Bundle"
         assert bundle["type"] == "transaction"
 
     def test_patient_uses_put(self):
-        resources = [map_patient("ev-2026", "male", "1981-05-29")]
-        bundle = build_bundle(resources, "ev-2026")
+        resources = [map_patient("test-patient-id", "male", "1970-01-01")]
+        bundle = build_bundle(resources, "test-patient-id")
         assert bundle["entry"][0]["request"]["method"] == "PUT"
 
     def test_condition_uses_post(self):
         resources = [
             map_condition({"Condition": "Psoriasis", "SNOMED": "9014002", "ICD10": "L40.9", "Date": "2018-09-17"})
         ]
-        bundle = build_bundle(resources, "ev-2026")
+        bundle = build_bundle(resources, "test-patient-id")
         assert bundle["entry"][0]["request"]["method"] == "POST"
 
     def test_meta_tags_present(self):
-        bundle = build_bundle([], "ev-2026")
+        bundle = build_bundle([], "test-patient-id")
         tag_codes = {t["code"] for t in bundle["meta"]["tag"]}
         assert "patient-controlled" in tag_codes
         assert "deidentified" in tag_codes
 
     def test_bundle_is_valid_json(self):
-        resources = [map_patient("ev-2026", "male", "1981-05-29")]
-        bundle = build_bundle(resources, "ev-2026")
+        resources = [map_patient("test-patient-id", "male", "1970-01-01")]
+        bundle = build_bundle(resources, "test-patient-id")
         assert json.loads(json.dumps(bundle)) == bundle
 
 

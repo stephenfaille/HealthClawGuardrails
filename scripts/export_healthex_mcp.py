@@ -6,7 +6,7 @@ MCP response is never written to disk.
 
 Usage:
     HEALTHEX_AUTH_TOKEN=<token> python scripts/export_healthex_mcp.py \\
-        --tenant-id ev-personal \\
+        --tenant-id my-tenant \\
         --output exports/healthex-$(date +%Y-%m-%d).json
 
 Requires: mcp>=1.2, httpx. Python 3.10+.

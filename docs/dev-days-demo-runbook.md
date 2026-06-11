@@ -38,7 +38,7 @@ MCP: OK
 ### 3. Check record count — have real data ready
 
 ```bash
-curl -s -H "X-Tenant-Id: ev-personal" \
+curl -s -H "X-Tenant-Id: my-tenant" \
   "https://app.healthclaw.io/r6/fhir/Condition?_summary=count" | jq .total
 ```
 
@@ -57,7 +57,7 @@ In [portal.connect.fastenhealth.com/developers](https://portal.connect.fastenhea
 | Tab | URL |
 |---|---|
 | Telegram | web.telegram.org or phone |
-| Connect page | `https://app.healthclaw.io/connect/ev-personal` |
+| Connect page | `https://app.healthclaw.io/connect/my-tenant` |
 | Dashboard | `https://app.healthclaw.io/r6-dashboard` |
 | PromptOpinion agent | `https://app.promptopinion.ai` (optional, for MCP live demo) |
 | Railway logs | `railway logs --service HealthClawGuardrails` in a terminal |
@@ -71,13 +71,13 @@ In [portal.connect.fastenhealth.com/developers](https://portal.connect.fastenhea
 **Narrate:** "The patient just downloaded our Telegram bot. They type `/start`."
 
 1. In Telegram, send `/start`
-   - **Point out:** bot replies with a confirmation that "Chat is bound to tenant `ev-personal`"
+   - **Point out:** bot replies with a confirmation that "Chat is bound to tenant `my-tenant`"
    - **Say:** "Under the hood, OpenClaw just made a step-up-authenticated POST to
      `/internal/bind-telegram`. The server verified a time-limited HMAC token before
      accepting the binding — that's the step-up authorization pattern."
 
 2. Send `/connect`
-   - Bot replies with `https://app.healthclaw.io/connect/ev-personal`
+   - Bot replies with `https://app.healthclaw.io/connect/my-tenant`
    - **Say:** "This is the Fasten TEFCA page. One click and the patient verifies their
      identity through CLEAR or ID.me across every QHIN in the network."
    - Open the connect page in your pre-loaded browser tab, show the Stitch widget
@@ -105,8 +105,8 @@ In [portal.connect.fastenhealth.com/developers](https://portal.connect.fastenhea
    ```bash
    railway logs --service HealthClawGuardrails 2>&1 | grep "AuditEvent\|redact\|tenant"
    ```
-   - **Show:** `audit_event` lines with `X-Tenant-ID: ev-personal`
-   - **Say:** "Tenant isolation is enforced on every database query — the `ev-personal`
+   - **Show:** `audit_event` lines with `X-Tenant-ID: my-tenant`
+   - **Say:** "Tenant isolation is enforced on every database query — the `my-tenant`
      tag is baked into the WHERE clause, not trusted from the client."
 
 ---
@@ -159,7 +159,7 @@ record (conditions, meds, insurance, identity) from every provider/payer.
 
    ```bash
    python scripts/export_healthbankone_mcp.py \
-     --tenant-id ev-personal-hbo --discover --pretty
+     --tenant-id my-tenant --discover --pretty
    ```
 
    - **Show:** tools listed at runtime (health.summary, medications, conditions, identity, …)

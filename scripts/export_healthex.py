@@ -9,23 +9,23 @@ exports/healthex-<date>.json.
 
 Usage:
     # Basic export for a tenant
-    python scripts/export_healthex.py --tenant-id ev-personal
+    python scripts/export_healthex.py --tenant-id my-tenant
 
     # Export and immediately import into a second tenant
     python scripts/export_healthex.py \\
-        --tenant-id ev-personal \\
+        --tenant-id my-tenant \\
         --import \\
-        --import-tenant ev-archive \\
+        --import-tenant my-archive-tenant \\
         --step-up-secret $STEP_UP_SECRET
 
     # Export specific resource types only
     python scripts/export_healthex.py \\
-        --tenant-id ev-personal \\
+        --tenant-id my-tenant \\
         --types Condition Observation AllergyIntolerance Immunization
 
     # Export to a specific output path
     python scripts/export_healthex.py \\
-        --tenant-id ev-personal \\
+        --tenant-id my-tenant \\
         --output /tmp/my-records.json
 
 De-identification applied (HIPAA Safe Harbor subset):

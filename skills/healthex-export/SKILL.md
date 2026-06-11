@@ -22,21 +22,21 @@ Replaces the manual Claude session pull for personal health data export.
 
 ```bash
 # Basic export — all clinical resource types for a tenant
-python scripts/export_healthex.py --tenant-id ev-personal
+python scripts/export_healthex.py --tenant-id my-tenant
 
 # Export + immediately import into a second tenant
 python scripts/export_healthex.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --import \
-    --import-tenant ev-archive \
+    --import-tenant my-archive-tenant \
     --step-up-secret $STEP_UP_SECRET
 
 # Preview what would be exported (no file written)
-python scripts/export_healthex.py --tenant-id ev-personal --dry-run
+python scripts/export_healthex.py --tenant-id my-tenant --dry-run
 
 # Export specific resource types
 python scripts/export_healthex.py \
-    --tenant-id ev-personal \
+    --tenant-id my-tenant \
     --types Condition Observation AllergyIntolerance Immunization MedicationRequest
 ```
 
@@ -115,7 +115,7 @@ Each extension carries a `valueCodeableConcept` with the tag code and display te
 ```bash
 # Find all observations with Curatr pre-tags
 curl -s "http://localhost:5000/r6/fhir/Observation?_count=200" \
-  -H "X-Tenant-ID: ev-archive" \
+  -H "X-Tenant-ID: my-archive-tenant" \
   | python3 -c "
 import json, sys
 b = json.load(sys.stdin)

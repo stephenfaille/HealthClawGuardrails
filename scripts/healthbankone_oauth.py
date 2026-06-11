@@ -40,7 +40,7 @@ Environment variables (defaults point at the live HBO endpoints):
 
 Usage:
 
-  python scripts/healthbankone_oauth.py authorize --tenant-id ev-personal-hbo
+  python scripts/healthbankone_oauth.py authorize --tenant-id my-tenant
   python scripts/healthbankone_oauth.py status
   python scripts/healthbankone_oauth.py revoke
   python scripts/healthbankone_oauth.py register --client-name "HealthClaw"
@@ -483,7 +483,7 @@ def main() -> int:
 
     p_auth = sub.add_parser("authorize",
                              help="Open browser, complete OAuth dance, cache tokens")
-    p_auth.add_argument("--tenant-id", default="ev-personal-hbo",
+    p_auth.add_argument("--tenant-id", default="my-tenant",
                         help="HealthClaw tenant ID this grant belongs to")
     p_auth.add_argument("--scopes", default=None,
                         help="Override HBO_SCOPES (space-separated)")

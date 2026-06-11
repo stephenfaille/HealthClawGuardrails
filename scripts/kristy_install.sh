@@ -10,21 +10,21 @@
 #                                            — runs the watcher daily at 06:00
 #
 # Run from the laptop (over SSH):
-#   SSH_USER=coopeydoop SSH_HOST=192.168.5.121 \
+#   SSH_USER=<your-username> SSH_HOST=<mac-mini-ip> \
 #   STEP_UP_SECRET=<railway-secret> \
 #   FAMILY_ICAL_URLS='Henry Football|https://...ics,Max Football|https://...ics' \
 #     bash scripts/kristy_install.sh
 #
 # Or pass args on the command line:
-#   bash scripts/kristy_install.sh --host 192.168.5.121 --user coopeydoop
+#   bash scripts/kristy_install.sh --host <mac-mini-ip> --user <your-username>
 #
 # The STEP_UP_SECRET is pulled from Railway if available via `railway variables`.
 
 set -euo pipefail
 
-SSH_USER="${SSH_USER:-coopeydoop}"
-SSH_HOST="${SSH_HOST:-192.168.5.121}"
-TENANT="${TENANT:-ev-personal}"
+SSH_USER="${SSH_USER:-$(whoami)}"
+SSH_HOST="${SSH_HOST:-192.168.1.100}"
+TENANT="${TENANT:-desktop-demo}"
 COMMAND_CENTER_API="${COMMAND_CENTER_API:-https://app.healthclaw.io/command-center/api}"
 HORIZON_DAYS="${FAMILY_HORIZON_DAYS:-28}"
 ALLOWED_DAYS="${FAMILY_ALLOWED_DAYS:-sun,mon,tue,wed,thu,sat}"

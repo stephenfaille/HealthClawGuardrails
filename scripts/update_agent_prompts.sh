@@ -18,8 +18,8 @@
 #   main    → router — knows everyone's specialty
 
 set -euo pipefail
-SSH_USER="${SSH_USER:-coopeydoop}"
-SSH_HOST="${SSH_HOST:-192.168.5.121}"
+SSH_USER="${SSH_USER:-$(whoami)}"
+SSH_HOST="${SSH_HOST:-192.168.1.100}"
 REMOTE="${SSH_USER}@${SSH_HOST}"
 
 HELPER="/Users/${SSH_USER}/.healthclaw/commands.py"

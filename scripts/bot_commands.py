@@ -1,4 +1,4 @@
-#!/Users/coopeydoop/.healthclaw/venv/bin/python3
+#!/usr/bin/env python3
 """
 scripts/bot_commands.py
 
@@ -105,7 +105,7 @@ def _dashboard_base() -> str:
 
 
 def _tenant_default() -> str:
-    return os.environ.get("DEFAULT_TENANT", "ev-personal")
+    return os.environ.get("DEFAULT_TENANT", "desktop-demo")
 
 
 # ---------------------------------------------------------------------------

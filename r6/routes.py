@@ -1365,8 +1365,8 @@ def privacy_policy():
         },
         'contact': {
             'support': 'https://github.com/aks129/fhir-mcp-guardrails/issues',
-            'maintainer': 'FHIR IQ / Eugene Vestel',
-            'website': 'https://www.fhiriq.com',
+            'maintainer': 'HealthClaw',
+            'website': 'https://healthclaw.io',
         },
     })
 

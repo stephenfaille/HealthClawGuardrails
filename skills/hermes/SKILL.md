@@ -9,7 +9,7 @@ description: >
   Hermes, the agentskills.io standard, SOUL personas, the Nous agent, or
   wants an alternative to OpenClaw that learns over time.
 version: 1.0.0
-author: Eugene Vestel (fhiriq.com)
+author: HealthClaw contributors
 license: MIT
 references:
   hermes_repo: https://github.com/nousresearch/hermes-agent

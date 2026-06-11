@@ -10,19 +10,19 @@ by (resourceType, id) and keeping the most recently updated version per resource
 Usage:
     python scripts/convert_fasten.py \\
         --input ~/Downloads/health-records-2026-01-15.json \\
-        --output healthclaw-bundle-ev-2026.json
+        --output healthclaw-bundle.json
 
     # Merge multiple Fasten exports into one bundle
     python scripts/convert_fasten.py \\
         --input "~/Downloads/health-records-2026-01-15 (1).json" \\
                 "~/Downloads/health-records-2026-01-15 (3).json" \\
-        --output healthclaw-bundle-ev-2026.json
+        --output healthclaw-bundle.json
 
     # Limit resource types (useful for large exports)
     python scripts/convert_fasten.py \\
         --input ~/Downloads/health-records-2026-01-15.json \\
         --types Patient Condition Observation Immunization MedicationRequest AllergyIntolerance \\
-        --output healthclaw-bundle-ev-2026.json
+        --output healthclaw-bundle.json
 """
 
 import argparse
@@ -40,8 +40,8 @@ def parse_args():
         help='Path(s) to Fasten Health export JSON file(s)',
     )
     p.add_argument(
-        '--output', '-o', default='healthclaw-bundle-ev-2026.json',
-        help='Output Bundle path (default: healthclaw-bundle-ev-2026.json)',
+        '--output', '-o', default='healthclaw-bundle.json',
+        help='Output Bundle path (default: healthclaw-bundle.json)',
     )
     p.add_argument(
         '--types', nargs='*',

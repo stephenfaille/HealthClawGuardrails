@@ -58,7 +58,7 @@ def _tenant() -> str:
     4. DEFAULT_TENANT (desktop-demo)
 
     Non-public tenants require a session OR a valid step-up token. A bare
-    ?tenant=ev-personal with no auth silently falls back to the default —
+    ?tenant=<your-tenant> with no auth silently falls back to the default —
     it never leaks personal data.
     """
     sess_tenant = session.get(SESSION_KEY)

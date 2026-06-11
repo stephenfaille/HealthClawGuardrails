@@ -9,7 +9,7 @@ description: >
   HealthEx and Fasten Connect. Triggers on prompts like "connect Health Bank
   One", "pull from HBO", "verify identity through Health Bank One".
 version: 0.2.0
-author: Eugene Vestel (fhiriq.com)
+author: HealthClaw contributors
 license: MIT
 status: live — all 14 tools confirmed 2026-06-10 (Bootstrap Developer Program)
 references:
@@ -67,9 +67,9 @@ Health Bank One digital ID app → approve → connected.
 ```bash
 export HBO_MCP_URL=https://mcp.app.healthbankone.com/mcp
 # Authorize once (opens browser + QR):
-python scripts/healthbankone_oauth.py authorize --tenant-id ev-personal-hbo
+python scripts/healthbankone_oauth.py authorize --tenant-id my-tenant
 # Then pull + redact + ingest:
-python scripts/export_healthbankone_mcp.py --tenant-id ev-personal-hbo --discover
+python scripts/export_healthbankone_mcp.py --tenant-id my-tenant --discover
 ```
 
 ### 2. Multi-patient access (Commercial license required)
@@ -90,7 +90,7 @@ For the HealthClaw pipeline:
 
 ```bash
 python scripts/export_healthbankone_mcp.py \
-  --tenant-id ev-personal-hbo \
+  --tenant-id my-tenant \
   --output ~/.healthclaw/exports/hbo-$(date +%Y-%m-%d).json
 ```
 
@@ -107,7 +107,7 @@ What the script does:
 ```bash
 python scripts/import_healthex.py \
   --bundle-file ~/.healthclaw/exports/hbo-2026-06-04.json \
-  --tenant-id ev-personal-hbo \
+  --tenant-id my-tenant \
   --step-up-secret "$STEP_UP_SECRET"
 ```
 

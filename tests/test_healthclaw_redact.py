@@ -30,8 +30,8 @@ from healthclaw_redact import redact, RedactionStats  # noqa: E402
 CANNED_PATIENT = {
     "resourceType": "Patient",
     "id": "pat-001",
-    "name": [{"given": ["Eugene"], "family": "Vestel", "text": "Eugene Vestel"}],
-    "birthDate": "1981-05-29",
+    "name": [{"given": ["Alex"], "family": "Johnson", "text": "Alex Johnson"}],
+    "birthDate": "1970-01-01",
     "gender": "male",
     "address": [{
         "line": ["123 Main St"], "city": "Pittsburgh", "state": "PA",
@@ -42,7 +42,7 @@ CANNED_PATIENT = {
         {"system": "email", "value": "eugene@example.com"},
     ],
     "identifier": [{"system": "http://hospitals.example/mrn", "value": "MRN-77234-A"}],
-    "text": {"status": "generated", "div": "<div>Eugene Vestel, 44yo male</div>"},
+    "text": {"status": "generated", "div": "<div>Alex Johnson, 44yo male</div>"},
 }
 
 CANNED_CONDITION = {
@@ -52,7 +52,7 @@ CANNED_CONDITION = {
     "code": {"coding": [{"system": "http://snomed.info/sct", "code": "44054006",
                          "display": "Diabetes mellitus type 2"}]},
     "onsetDateTime": "2019-03-14",
-    "note": [{"text": "Patient Eugene Vestel reports worsening symptoms."}],
+    "note": [{"text": "Patient Alex Johnson reports worsening symptoms."}],
 }
 
 CANNED_LABS_BUNDLE = {
@@ -76,7 +76,7 @@ CANNED_LABS_BUNDLE = {
 }
 
 CANNED_MEDS_FLAT = [{
-    "patientName": "Eugene Vestel", "ssn": "123-45-6789",
+    "patientName": "Alex Johnson", "ssn": "123-45-6789",
     "medication": "Metformin 500mg", "rxnorm": "860975", "startDate": "2019-03-15",
 }]
 
@@ -89,13 +89,13 @@ class TestPatientRedaction:
 
     def test_name_truncated_to_initials(self):
         redacted, _ = redact(CANNED_PATIENT)
-        assert redacted["name"][0]["text"] == "E. V."
+        assert redacted["name"][0]["text"] == "A. J."
         assert "given" not in redacted["name"][0]
         assert "family" not in redacted["name"][0]
 
     def test_birthdate_coarsened_to_year(self):
         redacted, stats = redact(CANNED_PATIENT)
-        assert redacted["birthDate"] == "1981"
+        assert redacted["birthDate"] == "1970"
         assert stats.birthdates_coarsened == 1
 
     def test_address_strips_line_city_zip(self):
@@ -279,7 +279,7 @@ class TestEndToEndExport:
         assert "eugene@example.com" not in text
         assert "MRN-77234-A" not in text
         assert "123-45-6789" not in text
-        assert "Eugene Vestel" not in text
+        assert "Alex Johnson" not in text
         # Clinical signal intact across all resource types
         assert "44054006" in text  # SNOMED type-2 diabetes (Condition)
         assert "4548-4" in text    # LOINC A1c (Observation)
@@ -312,5 +312,5 @@ class TestEndToEndExport:
         mocked_export._write_single_json(snapshot, out, pretty=False)
         # With --no-redact, synthetic PHI stays. This is the escape hatch for
         # demo tenants; tests protect against accidentally flipping the default.
-        assert "Eugene" in out.read_text()
+        assert "Alex" in out.read_text()
         assert sum(snapshot["_meta"]["redaction_stats"].values()) == 0
