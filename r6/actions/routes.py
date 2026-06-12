@@ -17,9 +17,11 @@ import re
 from flask import Blueprint, jsonify, request
 
 from models import db
+from r6.actions.executors import execute_action
 from r6.actions.models import ProposedAction, VALID_KINDS
 from r6.audit import record_audit_event
 from r6.rate_limit import rate_limit_middleware
+from r6.stepup import validate_step_up_token
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +77,84 @@ def propose_action():
         detail=json.dumps(action.summary()),
     )
     return jsonify(action.to_dict()), 201
+
+
+@actions_blueprint.route('/<action_id>/commit', methods=['POST'])
+def commit_action(action_id):
+    tenant_id = _tenant_or_none()
+    if not tenant_id:
+        return _error(400, 'X-Tenant-Id header is required')
+
+    # Gate 1: step-up token (ALWAYS destructure the tuple)
+    step_up_token = request.headers.get('X-Step-Up-Token')
+    if not step_up_token:
+        return _error(401, 'Action commit requires X-Step-Up-Token header')
+    valid, err = validate_step_up_token(step_up_token, tenant_id)
+    if not valid:
+        return _error(401, 'Step-up token rejected: %s' % err)
+
+    # Gate 2: human confirmation (same contract as clinical writes)
+    confirmed = request.headers.get('X-Human-Confirmed', '').lower()
+    if confirmed != 'true':
+        return jsonify({
+            'error': 'Real-world actions require human confirmation. '
+                     'Set X-Human-Confirmed: true after the patient approves '
+                     'the draft.',
+            'requires_confirmation': True,
+        }), 428
+
+    action = ProposedAction.query.filter_by(
+        id=action_id, tenant_id=tenant_id).first()
+    if action is None:
+        return _error(404, 'Unknown action')
+    if action.is_expired() and action.status == 'proposed':
+        action.transition('expired')
+        db.session.commit()
+        return _error(410, 'Proposal expired — propose the action again')
+
+    # ATOMIC claim: guarded UPDATE prevents two concurrent commits from both
+    # executing (a double-placed phone call is worse than a failed one).
+    claimed = ProposedAction.query.filter_by(
+        id=action_id, tenant_id=tenant_id, status='proposed'
+    ).update({'status': 'confirmed'}, synchronize_session=False)
+    db.session.commit()
+    if not claimed:
+        db.session.refresh(action)
+        return _error(409, 'Action is %s, not proposed' % action.status)
+
+    db.session.refresh(action)
+    action.transition('executing')
+    db.session.commit()
+
+    record_audit_event(
+        'update', resource_type='ProposedAction', resource_id=action.id,
+        agent_id=request.headers.get('X-Agent-Id'), tenant_id=tenant_id,
+        detail=json.dumps(action.summary()),
+    )
+
+    result = execute_action(action.kind, action.payload, action_id=action.id)
+
+    if not result.ok:
+        # Post-send ambiguity (timeout/garbled response) -> 'unknown', never
+        # 'failed': a failed status invites re-propose -> duplicate call.
+        new_status = 'unknown' if result.outcome_unknown else 'failed'
+        action.transition(new_status)
+        action.outcome_summary = result.error
+        db.session.commit()
+        record_audit_event(
+            'update', resource_type='ProposedAction', resource_id=action.id,
+            tenant_id=tenant_id, outcome='failure', detail=result.error,
+        )
+        return jsonify({'id': action.id, 'status': new_status,
+                        'error': result.error}), 502
+
+    action.external_ref = result.external_ref
+    if result.simulated:
+        # No webhook will ever arrive — resolve synchronously
+        action.transition('completed')
+        action.outcome_summary = 'Simulated (no provider keys configured)'
+    db.session.commit()
+
+    response = action.to_dict()
+    response['simulated'] = result.simulated
+    return jsonify(response), 200
