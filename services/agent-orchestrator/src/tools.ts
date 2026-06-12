@@ -1298,7 +1298,13 @@ export class FHIRTools {
       body: JSON.stringify({ kind, payload }),
     });
     if (!resp.ok) {
-      return { error: `action_propose failed with status ${resp.status}` };
+      let detail: unknown = null;
+      try {
+        detail = await resp.json();
+      } catch {
+        try { detail = await resp.text(); } catch { detail = null; }
+      }
+      return { error: `action_propose failed with status ${resp.status}`, detail };
     }
     return (await resp.json()) as Record<string, unknown>;
   }
@@ -1313,7 +1319,17 @@ export class FHIRTools {
       headers: { ...headers, "Content-Type": "application/json", "X-Human-Confirmed": "true" },
     });
     if (!resp.ok) {
-      return { error: `action_commit failed with status ${resp.status}` };
+      let detail: unknown = null;
+      try {
+        detail = await resp.json();
+      } catch {
+        try { detail = await resp.text(); } catch { detail = null; }
+      }
+      const result: Record<string, unknown> = { error: `action_commit failed with status ${resp.status}`, detail };
+      if (resp.status === 401) {
+        result.requires_step_up = true;
+      }
+      return result;
     }
     return (await resp.json()) as Record<string, unknown>;
   }
@@ -1327,7 +1343,13 @@ export class FHIRTools {
       headers,
     });
     if (!resp.ok) {
-      return { error: `action_status failed with status ${resp.status}` };
+      let detail: unknown = null;
+      try {
+        detail = await resp.json();
+      } catch {
+        try { detail = await resp.text(); } catch { detail = null; }
+      }
+      return { error: `action_status failed with status ${resp.status}`, detail };
     }
     return (await resp.json()) as Record<string, unknown>;
   }

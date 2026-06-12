@@ -655,6 +655,40 @@ describe("Tool Execution Tests", () => {
     expect(result).toEqual(committed);
   });
 
+  it("action_commit on 410 returns error + detail containing 'expired'", async () => {
+    const body = { error: "Proposal expired — propose the action again" };
+    mockFetch.mockResolvedValueOnce(fakeResponse(body, 410));
+
+    const result = await tools.executeTool(
+      "action_commit",
+      { action_id: "act-expired" },
+      { "x-step-up-token": "valid-token-abc", "x-tenant-id": "tenant-xyz" }
+    );
+
+    expect(result).toHaveProperty("error");
+    expect((result.error as string)).toContain("410");
+    expect(result).toHaveProperty("detail");
+    const detail = result.detail as Record<string, unknown>;
+    expect((detail.error as string).toLowerCase()).toContain("expired");
+    expect(result).not.toHaveProperty("requires_step_up");
+  });
+
+  it("action_commit on 401 includes requires_step_up: true", async () => {
+    const body = { error: "Step-up token rejected: token expired" };
+    mockFetch.mockResolvedValueOnce(fakeResponse(body, 401));
+
+    const result = await tools.executeTool(
+      "action_commit",
+      { action_id: "act-001" },
+      { "x-step-up-token": "expired-token", "x-tenant-id": "tenant-xyz" }
+    );
+
+    expect(result).toHaveProperty("error");
+    expect((result.error as string)).toContain("401");
+    expect(result).toHaveProperty("requires_step_up", true);
+    expect(result).toHaveProperty("detail");
+  });
+
   // -- action_status --
 
   it("action_status fetches /r6/actions/<id> and returns parsed status", async () => {
