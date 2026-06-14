@@ -345,6 +345,161 @@ def data_sources(tenant_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# All-sources summary (Dev Days "check every connected source" view)
+# ---------------------------------------------------------------------------
+
+# Canonical catalog for the one-shot summary. Order is the display order.
+# `markers` are substrings matched (case-insensitively) against AuditEventRecord
+# .detail / .agent_id to detect a source that has no dedicated table.
+_SUMMARY_SOURCE_CATALOG = [
+    {"id": "fasten",       "name": "Fasten TEFCA"},
+    {"id": "healthex",     "name": "HealthEx"},
+    {"id": "hbo",          "name": "Health Bank One", "markers": ["hbo", "healthbankone", "health bank one"]},
+    {"id": "medent",       "name": "MEDENT",          "markers": ["medent"]},
+    {"id": "flexpa",       "name": "Flexpa",          "markers": ["flexpa"]},
+    {"id": "healthskillz", "name": "Epic / Health Skillz", "markers": ["healthskillz", "health skillz", "epic"]},
+    {"id": "wearables",    "name": "Open Wearables"},
+]
+
+
+def _audit_signal(tenant_id: str, markers: list[str]) -> tuple[bool, str | None]:
+    """
+    Generic audit-event heuristic mirroring `_has_healthex_signal`: a source is
+    "connected" if any recent AuditEventRecord for the tenant carries one of the
+    marker substrings in its detail or agent_id. Returns (connected, last_iso).
+    """
+    if not markers:
+        return False, None
+    conditions = []
+    for m in markers:
+        like = f"%{m}%"
+        conditions.append(AuditEventRecord.detail.ilike(like))
+        conditions.append(AuditEventRecord.agent_id.ilike(like))
+    from sqlalchemy import or_
+    ev = (
+        AuditEventRecord.query
+        .filter(AuditEventRecord.tenant_id == tenant_id)
+        .filter(or_(*conditions))
+        .order_by(desc(AuditEventRecord.recorded))
+        .first()
+    )
+    if ev is None:
+        return False, None
+    return True, (ev.recorded.isoformat() if ev.recorded else None)
+
+
+def _summary_entry(tenant_id: str, spec: dict, table_sources: dict) -> dict:
+    """
+    Build one source entry for the summary. The 5 sources already covered by
+    data_sources() are reused from `table_sources`; the rest are detected via
+    the audit-signal heuristic. Each call is independently guarded by the caller.
+    """
+    sid = spec["id"]
+    name = spec["name"]
+
+    # Reuse the existing per-source detection where data_sources covers it.
+    if sid == "fasten":
+        existing = table_sources.get("fasten")
+        return {
+            "id": "fasten", "name": name,
+            "connected": bool(existing and existing.get("connected")),
+            "detail": existing.get("detail") if existing else "Not configured",
+            "last_activity": existing.get("last_activity") if existing else None,
+        }
+    if sid == "healthex":
+        existing = table_sources.get("healthex")
+        return {
+            "id": "healthex", "name": name,
+            "connected": bool(existing and existing.get("connected")),
+            "detail": existing.get("detail") if existing else "Not connected",
+            "last_activity": existing.get("last_activity") if existing else None,
+        }
+    if sid == "wearables":
+        existing = table_sources.get("wearables")
+        return {
+            "id": "wearables", "name": name,
+            "connected": bool(existing and existing.get("connected")),
+            "detail": existing.get("detail") if existing else "No devices linked",
+            "last_activity": existing.get("last_activity") if existing else None,
+        }
+
+    # HBO / MEDENT / Flexpa / Epic-HealthSkillz — audit-signal heuristic only.
+    connected, last = _audit_signal(tenant_id, spec.get("markers", []))
+    return {
+        "id": sid, "name": name,
+        "connected": connected,
+        "detail": "Detected via audit events" if connected else "Not connected",
+        "last_activity": last,
+    }
+
+
+def sources_summary(tenant_id: str) -> dict:
+    """
+    One-shot "check every connected source" view for the Dev Days demo.
+
+    Reports ALL 7 catalog sources (5 reused from data_sources(), plus HBO,
+    MEDENT, Flexpa, and Epic/Health Skillz via the audit-signal heuristic),
+    plus per-resource-type record counts from the R6Resource store.
+
+    Resilient by design: each source check is independently guarded so one
+    failing detector never breaks the whole response.
+    """
+    # Reuse the existing 5-source detection. Index by id for cheap lookup.
+    table_sources: dict[str, dict] = {}
+    try:
+        for s in data_sources(tenant_id):
+            table_sources[s["id"]] = s
+    except Exception:  # pragma: no cover - defensive
+        table_sources = {}
+
+    sources: list[dict] = []
+    for spec in _SUMMARY_SOURCE_CATALOG:
+        try:
+            sources.append(_summary_entry(tenant_id, spec, table_sources))
+        except Exception:  # pragma: no cover - defensive
+            sources.append({
+                "id": spec["id"], "name": spec["name"],
+                "connected": False, "detail": "check failed",
+                "last_activity": None,
+            })
+
+    # Per-resource-type record counts (grouped) + total.
+    records_by_type: list[dict] = []
+    total_records = 0
+    try:
+        rows = (
+            db.session.query(
+                R6Resource.resource_type,
+                func.count(R6Resource.id),
+            )
+            .filter(
+                R6Resource.tenant_id == tenant_id,
+                R6Resource.is_deleted == False,  # noqa: E712
+            )
+            .group_by(R6Resource.resource_type)
+            .order_by(desc(func.count(R6Resource.id)))
+            .all()
+        )
+        records_by_type = [{"type": rt, "count": int(c)} for rt, c in rows]
+        total_records = sum(r["count"] for r in records_by_type)
+    except Exception:  # pragma: no cover - defensive
+        records_by_type = []
+        total_records = 0
+
+    connected_count = sum(1 for s in sources if s.get("connected"))
+
+    return {
+        "tenant": tenant_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total_records": total_records,
+        "sources": sources,
+        "connected_count": connected_count,
+        "source_count": len(sources),
+        "records_by_type": records_by_type,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Skills
 # ---------------------------------------------------------------------------
 
