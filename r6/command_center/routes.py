@@ -9,6 +9,7 @@ Routes:
     GET  /command-center/api/readiness?tenant=<id>        — 5-stage pipeline
     GET  /command-center/api/actions?tenant=<id>          — audit event stream
     GET  /command-center/api/sources?tenant=<id>          — data sources
+    GET  /command-center/api/sources-summary?tenant=<id>  — all 7 sources + per-type counts
     GET  /command-center/api/skills?tenant=<id>           — skills status
     GET  /command-center/api/agents?tenant=<id>           — agent personas + stats
     GET  /command-center/api/conversations?tenant=<id>    — recent chat turns
@@ -212,6 +213,14 @@ def api_sources():
     if (err := _require_session_or_public()):
         return err
     return jsonify(projector.data_sources(_tenant()))
+
+
+@command_center_blueprint.route("/api/sources-summary", methods=["GET"])
+def api_sources_summary():
+    """All 7 data sources + per-resource-type record counts in one call."""
+    if (err := _require_session_or_public()):
+        return err
+    return jsonify(projector.sources_summary(_tenant()))
 
 
 @command_center_blueprint.route("/api/skills", methods=["GET"])
