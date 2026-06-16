@@ -99,9 +99,9 @@ def _skills_line(base, tenant, token):
         return None
 
 
-def _inventory_line(base, tenant):
+def _inventory_line(base, tenant, token=None):
     try:
-        data = _get(base, "/r6/fhir/$inventory", tenant)
+        data = _get(base, "/r6/fhir/$inventory", tenant, token=token)
         p = {x["name"]: x for x in data.get("parameter", [])}
         total = p.get("total", {}).get("valueInteger", 0)
         by = p.get("byType", {}).get("part", [])
@@ -122,10 +122,15 @@ def main():
     base = args.base_url.rstrip("/")
 
     print(f"── HealthClaw live telemetry · tenant={args.tenant} · {base} ──", flush=True)
-    print(_inventory_line(base, args.tenant), flush=True)
 
+    # Mint the step-up token first so the inventory snapshot (a FHIR read) can
+    # carry it. Harmless today (extra header ignored); once Flask's
+    # READ_AUTH_ENABLED flag is on, the snapshot keeps working for non-public
+    # tenants.
     token = _mint_token(base, args.tenant)
     token_at = time.monotonic()
+    print(_inventory_line(base, args.tenant, token), flush=True)
+
     src = "command-center (skills + output)" if token else "audit trail (tenant-read)"
     print(f"── watching {src} — Ctrl-C to stop ──", flush=True)
     sl = _skills_line(base, args.tenant, token)
@@ -168,7 +173,7 @@ def main():
             if sl:
                 print(sl, flush=True)
         if polls % args.snapshot_every == 0:
-            print(_inventory_line(base, args.tenant), flush=True)
+            print(_inventory_line(base, args.tenant, token), flush=True)
 
         time.sleep(args.interval)
 

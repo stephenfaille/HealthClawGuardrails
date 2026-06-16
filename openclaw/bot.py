@@ -198,15 +198,25 @@ def _fhir_get(path: str) -> dict:
 
 
 def _get_step_up_token() -> str:
-    """Fetch a fresh step-up token from the seed/token endpoint."""
+    """Fetch a fresh step-up token from the mint endpoint.
+
+    The endpoint returns the token under `token` (older callers expected
+    `step_up_token`). When INTERNAL_TOKEN_MINT_SECRET is set, minting for a
+    non-public tenant (this bot's TENANT_ID) requires X-Internal-Secret.
+    """
+    headers = {'X-Tenant-ID': TENANT_ID}
+    mint_secret = os.environ.get('INTERNAL_TOKEN_MINT_SECRET')
+    if mint_secret:
+        headers['X-Internal-Secret'] = mint_secret
     resp = requests.post(
         f'{FHIR_BASE_URL}/internal/step-up-token',
         json={'tenant_id': TENANT_ID},
-        headers={'X-Tenant-ID': TENANT_ID},
+        headers=headers,
         timeout=10,
     )
     resp.raise_for_status()
-    return resp.json().get('step_up_token', '')
+    data = resp.json()
+    return data.get('token') or data.get('step_up_token', '')
 
 
 # ---------------------------------------------------------------------------
@@ -284,8 +294,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         f'⚠️ Could not bind chat (`{bind_detail}`). You can still use commands; notifications are off.'
     )
 
+    # One-time risk acknowledgment for the chat-app channel. Telegram is a
+    # consumer channel, not BAA-covered transport; this is patient-directed
+    # access to one's own records. See templates/privacy.html "Messaging
+    # Platforms" for the full posture.
+    # TODO(nophi): wire a real /nophi toggle that flips this chat into
+    # summary-only mode (persist per chat_id, gate read formatters on it).
+    # Disclosure line is shipped now; the toggle is not yet implemented.
+    risk_line = (
+        '⚠️ Heads up: chat apps aren’t encrypted medical channels. '
+        'You’re accessing your own records here; by continuing you accept '
+        'that for your own data. Reply /nophi to keep responses summary-only.'
+    )
+
     text = (
         '*HealthClaw Guardrails Bot*\n\n'
+        f'{risk_line}\n\n'
         f'{bind_line}\n\n'
         'Commands:\n'
         '/connect — pull your records (Fasten + TEFCA)\n'

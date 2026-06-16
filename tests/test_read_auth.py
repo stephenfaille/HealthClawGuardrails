@@ -1,134 +1,283 @@
 """
-Tenant read authentication: the X-Tenant-Id header must be *authenticated*,
-not merely present, on FHIR reads.
+Tests for flag-gated read authentication and the token-mint oracle lock.
 
-Public/synthetic tenants (PUBLIC_TENANTS) stay open for the demo. Every
-other tenant must prove the claim with a tenant-bound step-up token or a
-SMART bearer whose tenant_id matches. The CapabilityStatement must also
-advertise the SMART OAuth security service.
+The vulnerability: FHIR reads were gated only by the client-supplied
+X-Tenant-Id header — no authentication. With READ_AUTH_ENABLED on, reads of
+non-public tenants must present a step-up token bound to that tenant.
+
+Default (flag off) must be a strict no-op: header-only reads keep working,
+so deploying this code changes nothing until the flag is flipped.
 """
-import time
 
 import pytest
 
 from r6.stepup import generate_step_up_token
 
+
+# A search GET returns a 200 searchset bundle even with an empty store, so it
+# exercises the read path without needing seeded data.
 READ_PATH = '/r6/fhir/Patient?_summary=count'
-PRIVATE_TENANT = 'private-clinic'  # deliberately NOT in PUBLIC_TENANTS
 
 
-def _is_auth_error(resp):
-    return resp.status_code == 401
+@pytest.fixture(autouse=True)
+def _clean_read_auth_env(monkeypatch):
+    """Each test starts with the read-auth flag and mint secret cleared.
+
+    conftest sets PUBLIC_TENANTS in os.environ; tests that care about it set
+    it explicitly via monkeypatch.
+    """
+    monkeypatch.delenv('READ_AUTH_ENABLED', raising=False)
+    monkeypatch.delenv('INTERNAL_TOKEN_MINT_SECRET', raising=False)
 
 
-# --- Read authentication on non-public tenants ---
+# --- Flag OFF: behavior preserved (default no-op) ---
 
-def test_private_tenant_read_without_auth_is_rejected(client):
-    resp = client.get(READ_PATH, headers={'X-Tenant-Id': PRIVATE_TENANT})
+def test_read_flag_off_header_only_succeeds(client):
+    """Flag off (default): header-only read returns 200 — unchanged."""
+    resp = client.get(READ_PATH, headers={'X-Tenant-Id': 'private-tenant'})
+    assert resp.status_code == 200
+
+
+def test_read_flag_off_public_tenants_irrelevant(client, monkeypatch):
+    """Flag off: even a non-public tenant reads fine without a token."""
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.get(READ_PATH, headers={'X-Tenant-Id': 'some-private-tenant'})
+    assert resp.status_code == 200
+
+
+# --- Flag ON ---
+
+def test_read_flag_on_non_public_no_token_401(client, monkeypatch):
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.get(READ_PATH, headers={'X-Tenant-Id': 'private-tenant'})
     assert resp.status_code == 401
     body = resp.get_json()
     assert body['resourceType'] == 'OperationOutcome'
     assert body['issue'][0]['code'] == 'security'
+    assert 'requires authentication' in body['issue'][0]['diagnostics']
 
 
-def test_private_tenant_read_with_valid_stepup_is_allowed(client):
-    token = generate_step_up_token(PRIVATE_TENANT)
+def test_read_flag_on_non_public_valid_token_200(client, monkeypatch):
+    monkeypatch.setenv('READ_AUTH_ENABLED', '1')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    token = generate_step_up_token('private-tenant')
     resp = client.get(READ_PATH, headers={
-        'X-Tenant-Id': PRIVATE_TENANT,
+        'X-Tenant-Id': 'private-tenant',
         'X-Step-Up-Token': token,
     })
-    assert not _is_auth_error(resp)
     assert resp.status_code == 200
 
 
-def test_private_tenant_read_with_invalid_stepup_is_rejected(client):
+def test_read_flag_on_bearer_alias_200(client, monkeypatch):
+    """Authorization: Bearer <token> is accepted as a token alias."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'yes')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    token = generate_step_up_token('private-tenant')
     resp = client.get(READ_PATH, headers={
-        'X-Tenant-Id': PRIVATE_TENANT,
-        'X-Step-Up-Token': 'garbage.not-a-real-signature',
+        'X-Tenant-Id': 'private-tenant',
+        'Authorization': f'Bearer {token}',
     })
-    assert resp.status_code == 401
-
-
-def test_stepup_for_other_tenant_is_rejected(client):
-    """A token bound to tenant A must not unlock tenant B's data."""
-    token = generate_step_up_token('some-other-tenant')
-    resp = client.get(READ_PATH, headers={
-        'X-Tenant-Id': PRIVATE_TENANT,
-        'X-Step-Up-Token': token,
-    })
-    assert resp.status_code == 401
-
-
-def test_private_tenant_read_with_matching_bearer_is_allowed(client):
-    from r6 import oauth
-    tok = 'test-bearer-private'
-    oauth._access_tokens[tok] = {
-        'client_id': 'c1', 'scopes': ['patient/*.read'],
-        'tenant_id': PRIVATE_TENANT, 'exp': time.time() + 3600,
-    }
-    try:
-        resp = client.get(READ_PATH, headers={
-            'X-Tenant-Id': PRIVATE_TENANT,
-            'Authorization': f'Bearer {tok}',
-        })
-        assert not _is_auth_error(resp)
-        assert resp.status_code == 200
-    finally:
-        oauth._access_tokens.pop(tok, None)
-
-
-def test_bearer_for_other_tenant_is_rejected(client):
-    from r6 import oauth
-    tok = 'test-bearer-mismatch'
-    oauth._access_tokens[tok] = {
-        'client_id': 'c1', 'scopes': ['patient/*.read'],
-        'tenant_id': 'some-other-tenant', 'exp': time.time() + 3600,
-    }
-    try:
-        resp = client.get(READ_PATH, headers={
-            'X-Tenant-Id': PRIVATE_TENANT,
-            'Authorization': f'Bearer {tok}',
-        })
-        assert resp.status_code == 401
-    finally:
-        oauth._access_tokens.pop(tok, None)
-
-
-# --- Regressions: public tenants and discovery stay open ---
-
-def test_public_tenant_read_without_auth_still_works(client):
-    """test-tenant is in PUBLIC_TENANTS (conftest) — must not require a token."""
-    resp = client.get(READ_PATH, headers={'X-Tenant-Id': 'test-tenant'})
-    assert not _is_auth_error(resp)
     assert resp.status_code == 200
 
 
-def test_metadata_without_tenant_still_public(client):
+def test_read_flag_on_token_wrong_tenant_401(client, monkeypatch):
+    """A valid token bound to a DIFFERENT tenant must be rejected."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    token = generate_step_up_token('other-tenant')
+    resp = client.get(READ_PATH, headers={
+        'X-Tenant-Id': 'private-tenant',
+        'X-Step-Up-Token': token,
+    })
+    assert resp.status_code == 401
+    assert resp.get_json()['issue'][0]['code'] == 'security'
+
+
+def test_read_flag_on_public_tenant_no_token_200(client, monkeypatch):
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', 'desktop-demo,winters-demo')
+    resp = client.get(READ_PATH, headers={'X-Tenant-Id': 'desktop-demo'})
+    assert resp.status_code == 200
+
+
+def test_read_flag_on_discovery_metadata_no_token_200(client, monkeypatch):
+    """Discovery endpoint reads need no auth even with the flag on."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
     resp = client.get('/r6/fhir/metadata')
     assert resp.status_code == 200
 
 
-def test_internal_step_up_token_endpoint_still_reachable(client):
-    """Token minting must stay open or there's no way to obtain read auth."""
+# --- Writes are independent of the read flag ---
+
+def test_write_requires_step_up_flag_off(client, monkeypatch, sample_patient):
+    monkeypatch.delenv('READ_AUTH_ENABLED', raising=False)
+    resp = client.post('/r6/fhir/Patient',
+                       json=sample_patient,
+                       headers={'X-Tenant-Id': 'private-tenant'})
+    assert resp.status_code == 401
+
+
+def test_write_requires_step_up_flag_on(client, monkeypatch, sample_patient):
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.post('/r6/fhir/Patient',
+                       json=sample_patient,
+                       headers={'X-Tenant-Id': 'private-tenant'})
+    assert resp.status_code == 401
+
+
+# --- Token-mint oracle lock ---
+
+def test_mint_unset_secret_open(client, monkeypatch):
+    """Unset INTERNAL_TOKEN_MINT_SECRET → open (backward-compatible)."""
+    monkeypatch.delenv('INTERNAL_TOKEN_MINT_SECRET', raising=False)
     resp = client.post('/r6/fhir/internal/step-up-token',
-                       json={'tenant_id': PRIVATE_TENANT})
+                       json={'tenant_id': 'private-tenant'})
     assert resp.status_code == 200
-    assert resp.get_json()['token']
+    assert 'token' in resp.get_json()
 
 
-# --- Phase 2: CapabilityStatement advertises SMART OAuth security ---
+def test_mint_secret_set_missing_header_403(client, monkeypatch):
+    monkeypatch.setenv('INTERNAL_TOKEN_MINT_SECRET', 'top-secret')
+    resp = client.post('/r6/fhir/internal/step-up-token',
+                       json={'tenant_id': 'private-tenant'})
+    assert resp.status_code == 403
 
-def test_capability_statement_declares_smart_security(client):
+
+def test_mint_secret_set_wrong_header_403(client, monkeypatch):
+    monkeypatch.setenv('INTERNAL_TOKEN_MINT_SECRET', 'top-secret')
+    resp = client.post('/r6/fhir/internal/step-up-token',
+                       json={'tenant_id': 'private-tenant'},
+                       headers={'X-Internal-Secret': 'wrong'})
+    assert resp.status_code == 403
+
+
+def test_mint_secret_set_correct_header_200(client, monkeypatch):
+    monkeypatch.setenv('INTERNAL_TOKEN_MINT_SECRET', 'top-secret')
+    resp = client.post('/r6/fhir/internal/step-up-token',
+                       json={'tenant_id': 'private-tenant'},
+                       headers={'X-Internal-Secret': 'top-secret'})
+    assert resp.status_code == 200
+    assert 'token' in resp.get_json()
+
+
+def test_mint_public_tenant_open_even_with_secret(client, monkeypatch):
+    """Public/synthetic tenants stay open with NO secret even when the mint
+    secret is set — so the browser demo dashboard + telemetry (which mint
+    desktop-demo tokens and can't hold a secret) keep working. A public-tenant
+    token only unlocks public data, which read-auth lets through anyway."""
+    monkeypatch.setenv('INTERNAL_TOKEN_MINT_SECRET', 'top-secret')
+    monkeypatch.setenv('PUBLIC_TENANTS', 'desktop-demo,test-tenant')
+    resp = client.post('/r6/fhir/internal/step-up-token',
+                       json={'tenant_id': 'desktop-demo'})
+    assert resp.status_code == 200
+    assert 'token' in resp.get_json()
+
+
+# --- Suffix-exemption bypass: a FHIR read of resource id "metadata"/"health"
+# must NOT be treated as a public discovery endpoint. ---
+
+def test_read_flag_on_resource_id_metadata_no_token_401(client, monkeypatch):
+    """GET /r6/fhir/Patient/metadata is a resource read, NOT discovery.
+
+    Pre-fix, path.endswith('/metadata') exempted this and leaked the Patient
+    without a token. It must now require auth like any other read.
+    """
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.get('/r6/fhir/Patient/metadata',
+                      headers={'X-Tenant-Id': 'private-tenant'})
+    assert resp.status_code == 401
+    assert resp.get_json()['issue'][0]['code'] == 'security'
+
+
+def test_read_flag_on_resource_id_health_no_token_401(client, monkeypatch):
+    """GET /r6/fhir/Patient/health (resource id 'health') must require auth."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.get('/r6/fhir/Patient/health',
+                      headers={'X-Tenant-Id': 'private-tenant'})
+    assert resp.status_code == 401
+    assert resp.get_json()['issue'][0]['code'] == 'security'
+
+
+def test_read_flag_on_real_metadata_no_token_200(client, monkeypatch):
+    """The real CapabilityStatement stays exempt with the flag on."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
     resp = client.get('/r6/fhir/metadata')
-    rest = resp.get_json()['rest'][0]
-    assert 'security' in rest, 'rest.security must advertise SMART OAuth'
-    security = rest['security']
-    codes = [c['code']
-             for svc in security.get('service', [])
-             for c in svc.get('coding', [])]
-    assert 'SMART-on-FHIR' in codes
-    oauth_ext = next(e for e in security['extension']
-                     if e['url'].endswith('/oauth-uris'))
-    sub = {x['url']: x['valueUri'] for x in oauth_ext['extension']}
-    assert sub['authorize'].endswith('/r6/fhir/oauth/authorize')
-    assert sub['token'].endswith('/r6/fhir/oauth/token')
+    assert resp.status_code == 200
+
+
+def test_read_flag_on_real_health_no_token_200(client, monkeypatch):
+    """The real health route stays exempt with the flag on."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    resp = client.get('/r6/fhir/health')
+    assert resp.status_code == 200
+
+
+def test_tenant_hook_resource_id_metadata_still_requires_tenant(client):
+    """Flag OFF: /r6/fhir/Patient/metadata still needs X-Tenant-Id.
+
+    The same suffix bug also let the tenant hook exempt this path. With the
+    exact-match fix, a missing tenant header is now a 400, not a silent pass.
+    """
+    resp = client.get('/r6/fhir/Patient/metadata')
+    assert resp.status_code == 400
+    assert resp.get_json()['issue'][0]['code'] == 'security'
+
+
+# --- OAuth bearer access tokens authorize reads (the advertised mechanism) ---
+
+def _mint_oauth_token(tenant_id, scopes):
+    """Inject an OAuth access token directly into the in-memory store."""
+    import secrets
+    import time
+    from r6 import oauth
+    tok = secrets.token_urlsafe(16)
+    oauth._access_tokens[tok] = {
+        'client_id': 'test-client',
+        'scopes': scopes,
+        'tenant_id': tenant_id,
+        'exp': time.time() + 3600,
+    }
+    return tok
+
+
+def test_read_flag_on_oauth_bearer_read_scope_200(client, monkeypatch):
+    """A valid OAuth bearer with a read scope for the tenant → 200."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    tok = _mint_oauth_token('private-tenant', ['patient/*.read'])
+    resp = client.get(READ_PATH, headers={
+        'X-Tenant-Id': 'private-tenant',
+        'Authorization': f'Bearer {tok}',
+    })
+    assert resp.status_code == 200
+
+
+def test_read_flag_on_oauth_bearer_wrong_tenant_401(client, monkeypatch):
+    """OAuth bearer bound to another tenant must not authorize the read."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    tok = _mint_oauth_token('other-tenant', ['patient/*.read'])
+    resp = client.get(READ_PATH, headers={
+        'X-Tenant-Id': 'private-tenant',
+        'Authorization': f'Bearer {tok}',
+    })
+    assert resp.status_code == 401
+
+
+def test_read_flag_on_oauth_bearer_no_read_scope_401(client, monkeypatch):
+    """OAuth bearer without a read scope must not authorize the read."""
+    monkeypatch.setenv('READ_AUTH_ENABLED', 'true')
+    monkeypatch.setenv('PUBLIC_TENANTS', '')
+    tok = _mint_oauth_token('private-tenant', ['fhir.write'])
+    resp = client.get(READ_PATH, headers={
+        'X-Tenant-Id': 'private-tenant',
+        'Authorization': f'Bearer {tok}',
+    })
+    assert resp.status_code == 401

@@ -53,56 +53,76 @@ export interface MCPToolSchema {
 // Cap search results for token safety (marketplace limit: <25k tokens)
 const MAX_RESULT_ENTRIES = 50;
 
+// Per-tenant cache for server-minted read tokens (ensureReadToken). Tokens are
+// minted with a ~5-min TTL; reuse until ~30s before expiry to avoid minting on
+// every read call. Module-level so it survives across tool invocations.
+interface CachedReadToken {
+  token: string;
+  expiresAtMs: number;
+}
+const READ_TOKEN_CACHE = new Map<string, CachedReadToken>();
+const READ_TOKEN_TTL_MS = 5 * 60 * 1000; // assume 5-min server TTL
+const READ_TOKEN_SKEW_MS = 30 * 1000; // re-mint 30s before expiry
+
 export class FHIRTools {
   private baseUrl: string;
-  // Per-tenant read-token cache. The Flask read-auth gate requires a
-  // tenant-bound step-up token for any non-public tenant, even on reads. We
-  // mint one on demand and cache it (tokens are 5-min TTL; we re-mint at 4).
-  private readTokenCache = new Map<string, { token: string; expMs: number }>();
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
   }
 
   /**
-   * Ensure a read request carries tenant authentication. If the caller already
-   * supplied a step-up token or a bearer (or this is a SHARP request with its
-   * own FHIR identity), do nothing. Otherwise mint a short-lived, tenant-bound
-   * step-up token via the internal endpoint and attach it. Best-effort: if
-   * minting fails the read proceeds and Flask returns its own 401.
+   * Env-gated read-token auto-mint. Prepares read-path consumers for the Flask
+   * READ_AUTH_ENABLED flag: when on, GET reads for non-public tenants need a
+   * tenant-bound step-up token. This mints one server-side so MCP reads keep
+   * working after the flip — without changing today's behavior.
+   *
+   * No-op unless READ_TOKEN_AUTOMINT === 'true'. If a step-up token is already
+   * present (caller-provided), it is left untouched. On mint failure we log and
+   * proceed (the read may 401 if the flag is on, but we never crash).
    */
-  private async attachReadToken(
-    tenantId: string,
-    fwdHeaders: Record<string, string>
-  ): Promise<void> {
-    if (
-      fwdHeaders["X-Step-Up-Token"] ||
-      fwdHeaders["Authorization"] ||
-      fwdHeaders["X-FHIR-Server-URL"]
-    ) {
-      return;
-    }
+  async ensureReadToken(fwdHeaders: Record<string, string>): Promise<void> {
+    if (process.env.READ_TOKEN_AUTOMINT !== "true") return;
+    if (fwdHeaders["X-Step-Up-Token"]) return;
+
+    const tenant = fwdHeaders["X-Tenant-Id"] || "desktop-demo";
     const now = Date.now();
-    const cached = this.readTokenCache.get(tenantId);
-    if (cached && cached.expMs > now) {
+
+    // Key by serverRoot + tenant: a step-up token is minted by (and only valid
+    // against) a specific Flask backend, so a token cached for one backend must
+    // never be reused for a request routed to a different backend.
+    const cacheKey = `${this.serverRoot()}::${tenant}`;
+
+    const cached = READ_TOKEN_CACHE.get(cacheKey);
+    if (cached && cached.expiresAtMs - READ_TOKEN_SKEW_MS > now) {
       fwdHeaders["X-Step-Up-Token"] = cached.token;
       return;
     }
+
     try {
-      const resp = await fetch(`${this.baseUrl}/internal/step-up-token`, {
+      const resp = await fetch(`${this.serverRoot()}/r6/fhir/internal/step-up-token`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Tenant-Id": tenantId },
-        body: JSON.stringify({ tenant_id: tenantId }),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Tenant-Id": tenant,
+          "X-Internal-Secret": process.env.INTERNAL_TOKEN_MINT_SECRET || "",
+        },
+        body: JSON.stringify({ tenant_id: tenant }),
       });
-      if (!resp.ok) return;
+      if (!resp.ok) {
+        console.error(`ensureReadToken: mint failed (status ${resp.status}) for tenant ${tenant}; proceeding without read token`);
+        return;
+      }
       const data = (await resp.json()) as Record<string, unknown>;
-      const token = data.token;
-      if (typeof token !== "string") return;
-      this.readTokenCache.set(tenantId, { token, expMs: now + 240_000 });
+      const token = data.token as string | undefined;
+      if (!token) {
+        console.error(`ensureReadToken: mint returned no token for tenant ${tenant}; proceeding without read token`);
+        return;
+      }
+      READ_TOKEN_CACHE.set(cacheKey, { token, expiresAtMs: now + READ_TOKEN_TTL_MS });
       fwdHeaders["X-Step-Up-Token"] = token;
-    } catch {
-      // Network error minting the token — let the read hit Flask and surface
-      // its own auth error rather than masking it here.
+    } catch (e) {
+      console.error(`ensureReadToken: mint request error (${(e as Error).name}) for tenant ${tenant}; proceeding without read token`);
     }
   }
 
@@ -678,11 +698,12 @@ export class FHIRTools {
     if (headers?.["x-fhir-access-token"]) fwdHeaders["X-FHIR-Access-Token"] = headers["x-fhir-access-token"];
     if (headers?.["x-patient-id"]) fwdHeaders["X-Patient-ID"] = headers["x-patient-id"];
 
-    // Reads against a non-public tenant now require a tenant-bound token. Mint
-    // one transparently when the caller didn't supply auth, so read tools keep
-    // working without the agent having to call fhir_get_token first.
+    // Read-path consumers: if READ_TOKEN_AUTOMINT is on and this is a read-tier
+    // tool with no caller-provided step-up token, mint one server-side so reads
+    // survive the Flask READ_AUTH_ENABLED flag flip for non-public tenants.
+    // No-op by default (env unset) → today's behavior is unchanged.
     if (tool.tier === "read") {
-      await this.attachReadToken(tenantId, fwdHeaders);
+      await this.ensureReadToken(fwdHeaders);
     }
 
     switch (toolName) {
@@ -795,7 +816,12 @@ export class FHIRTools {
         const tokenTenant = (input.tenant_id as string) || tenantId;
         const resp = await fetch(`${this.baseUrl}/internal/step-up-token`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", ...fwdHeaders },
+          headers: {
+            "Content-Type": "application/json",
+            // Non-public tenants require the mint secret when it's set.
+            "X-Internal-Secret": process.env.INTERNAL_TOKEN_MINT_SECRET || "",
+            ...fwdHeaders,
+          },
           body: JSON.stringify({ tenant_id: tokenTenant }),
         });
         const data = (await resp.json()) as Record<string, unknown>;

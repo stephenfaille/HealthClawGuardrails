@@ -12,6 +12,7 @@ Validation: structural checks for required fields. Falls back when external
 validator unavailable. No StructureDefinition or terminology binding validation.
 """
 
+import hmac
 import json
 import logging
 import os
@@ -31,7 +32,7 @@ from r6.audit import record_audit_event
 from r6.redaction import apply_patient_controlled_redaction
 from r6.redaction import apply_redaction
 from r6.stepup import validate_step_up_token, generate_step_up_token
-from r6.oauth import register_oauth_routes
+from r6.oauth import register_oauth_routes, validate_bearer_token
 from r6.rate_limit import rate_limit_middleware
 from r6.health_compliance import (
     add_disclaimer, enforce_human_in_loop, deidentify_resource,
@@ -101,26 +102,106 @@ _VALID_BUNDLE_TYPES = {
 # Valid FHIR search patient reference pattern
 _PATIENT_REF_PATTERN = re.compile(r'^Patient/[A-Za-z0-9\-.]{1,64}$')
 
+# The blueprint's url_prefix. Exemptions are matched against the full request
+# path, so they must be anchored to this prefix — NOT matched by suffix.
+# FHIR resource ids match [A-Za-z0-9.\-]{1,64}, so a suffix test like
+# path.endswith('/metadata') also matches GET /r6/fhir/Patient/metadata (a
+# resource read of id "metadata"), which would silently exempt a real read
+# from tenant/read-auth enforcement. Anchor every exemption instead.
+_R6_PREFIX = '/r6/fhir'
+
+# Discovery/public endpoints exempt from tenant + read-auth enforcement.
+# EXACT full paths — never suffix-matched.
+_EXEMPT_EXACT_PATHS = frozenset({
+    f'{_R6_PREFIX}/metadata',   # CapabilityStatement
+    f'{_R6_PREFIX}/health',     # health check
+})
+
+# Genuinely-namespaced sub-trees exempt from tenant + read-auth enforcement.
+# These are prefix-matched because every path under them is non-clinical and
+# no FHIR resource read can introduce one of these segments: a resource read is
+# /{prefix}/{ResourceType}/{id}, where ResourceType is a single bare segment —
+# it can never be "internal", ".well-known", "oauth", "mcp-apps", or "demo"
+# *followed by another '/segment'*. (e.g. /r6/fhir/demo/agent-loop is the demo
+# endpoint; /r6/fhir/Demo is a — nonexistent — resource type but still a single
+# segment, so it would NOT match these prefixes.)
+_EXEMPT_PATH_PREFIXES = (
+    f'{_R6_PREFIX}/internal/',
+    f'{_R6_PREFIX}/.well-known/',
+    f'{_R6_PREFIX}/oauth/',
+    f'{_R6_PREFIX}/mcp-apps/',
+    f'{_R6_PREFIX}/demo/',
+)
+
+
+def _is_exempt_discovery_path(path):
+    """True if `path` is a public discovery/namespaced endpoint.
+
+    Exact-match the literal discovery routes (/metadata, /health) and
+    prefix-match the namespaced sub-trees. Crucially this does NOT use a
+    suffix test, so a FHIR read like /r6/fhir/Patient/metadata (resource id
+    "metadata") is NOT treated as discovery and stays fully gated.
+    """
+    if path in _EXEMPT_EXACT_PATHS:
+        return True
+    return any(path.startswith(p) for p in _EXEMPT_PATH_PREFIXES)
+
+
+# --- Read Authentication (flag-gated) ---
+
+
+def _read_auth_enabled():
+    """True only when READ_AUTH_ENABLED is explicitly turned on.
+
+    Defaults OFF — deploying this code changes nothing until the flag is
+    flipped. Re-read every call so the flag can be toggled without restart.
+    """
+    return os.environ.get('READ_AUTH_ENABLED', '').strip().lower() in (
+        '1', 'true', 'yes',
+    )
+
+
+def _public_read_tenants():
+    """Tenants readable without authentication (synthetic demo data).
+
+    Parsed from PUBLIC_TENANTS (comma-separated). Empty/unset → no public
+    tenants. Re-read every call so changes take effect without restart.
+    """
+    raw = os.environ.get('PUBLIC_TENANTS', '').strip()
+    if not raw:
+        return frozenset()
+    return frozenset(t.strip() for t in raw.split(',') if t.strip())
+
+
+def _read_auth_required(tenant_id):
+    """Whether a read for `tenant_id` must present a tenant-bound token.
+
+    False when the flag is off (no-op default) or the tenant is public.
+    True otherwise — caller must then validate a step-up token bound to
+    this tenant.
+    """
+    if not _read_auth_enabled():
+        return False
+    if tenant_id in _public_read_tenants():
+        return False
+    return True
+
 
 # --- Tenant Enforcement ---
 
 @r6_blueprint.before_request
 def enforce_tenant_id():
-    """Require X-Tenant-Id header on all endpoints except public discovery."""
-    # Public discovery endpoints (no tenant required)
-    if request.path.endswith('/metadata'):
-        return None
-    if request.path.endswith('/health'):
-        return None
-    if '/internal/' in request.path or '/demo/' in request.path:
-        return None
-    if '/.well-known/' in request.path:
-        return None
-    if '/oauth/' in request.path:
-        return None
-    # MCP App HTML renders without a tenant header; tenant arrives via
-    # query string or is supplied by the MCP client's outer session.
-    if '/mcp-apps/' in request.path:
+    """Require X-Tenant-Id header on all endpoints except public discovery.
+
+    Discovery exemptions are matched by EXACT path / namespaced prefix via
+    _is_exempt_discovery_path — never by suffix. A suffix test would let a
+    FHIR read of resource id "metadata"/"health" (e.g. GET
+    /r6/fhir/Patient/metadata) slip past tenant enforcement.
+    """
+    # Public discovery + namespaced endpoints (no tenant required).
+    # /mcp-apps/ HTML renders without a tenant header; the tenant arrives via
+    # query string or the MCP client's outer session.
+    if _is_exempt_discovery_path(request.path):
         return None
     tenant_id = request.headers.get('X-Tenant-Id')
     # SHARP-on-MCP: requests bearing X-FHIR-Server-URL carry their own
@@ -153,41 +234,103 @@ def enforce_tenant_id():
             }]
         }), 400
 
-    # --- Authenticate the tenant claim ---
-    # Presence of X-Tenant-Id is NOT proof of ownership. Public/synthetic
-    # tenants (PUBLIC_TENANTS) stay open for the demo; SHARP-on-MCP requests
-    # carry their own FHIR-level identity (a SMART token to the upstream).
-    # Everyone else must present a tenant-bound step-up token or a SMART
-    # Bearer whose tenant_id matches X-Tenant-Id. Writes already validate
-    # step-up inside their handlers; this closes the read-side gap.
-    from r6.command_center.access import is_public
-    if is_public(tenant_id) or is_sharp_context_active():
+
+@r6_blueprint.before_request
+def authenticate_read():
+    """Authenticate the tenant claim on FHIR reads (flag-gated).
+
+    The base header-only tenant enforcement does NOT authenticate the
+    X-Tenant-Id claim — any client can read a tenant's redacted data with
+    just the header. When READ_AUTH_ENABLED is on, GET reads of non-public
+    tenants must present a step-up token bound to that tenant.
+
+    Default behavior (flag off) is unchanged — this returns None and the
+    request proceeds exactly as before. Writes are not touched here; they
+    already require step-up in their own handlers.
+    """
+    # Only reads. Writes (POST/PUT/PATCH/DELETE) are gated elsewhere.
+    if request.method != 'GET':
         return None
-    step_up_token = request.headers.get('X-Step-Up-Token')
-    if step_up_token:
-        valid, _err = validate_step_up_token(step_up_token, tenant_id)
-        if valid:
-            return None
-    auth_header = request.headers.get('Authorization', '')
-    if auth_header.startswith('Bearer '):
-        from r6.oauth import validate_bearer_token
-        ok, info = validate_bearer_token(auth_header[len('Bearer '):])
-        if ok and info.get('tenant_id') == tenant_id:
-            return None
-    return jsonify({
-        'resourceType': 'OperationOutcome',
-        'issue': [{
-            'severity': 'error',
-            'code': 'security',
-            'diagnostics': (
-                'X-Tenant-Id is not authenticated for this tenant. Provide a '
-                'tenant-bound step-up token (X-Step-Up-Token) or a SMART '
-                'Bearer token. Mint one via POST '
-                '/r6/fhir/internal/step-up-token or the SMART OAuth flow '
-                '(see security block in /r6/fhir/metadata).'
-            ),
-        }]
-    }), 401
+
+    # No-op unless the flag is explicitly enabled.
+    if not _read_auth_enabled():
+        return None
+
+    # Exempt the same public/discovery endpoints as the tenant hook —
+    # these have no tenant and need no auth. Matched by exact path / namespaced
+    # prefix (NOT suffix), so /r6/fhir/Patient/metadata is a gated read, not a
+    # discovery exemption.
+    if _is_exempt_discovery_path(request.path):
+        return None
+
+    tenant_id = request.headers.get('X-Tenant-Id')
+    # SHARP-on-MCP requests carry their own FHIR-level identity (SMART
+    # access token) and a synthesized tenant; the upstream proxy enforces
+    # auth. Don't double-gate them.
+    if not tenant_id and is_sharp_context_active():
+        return None
+    if not tenant_id:
+        # The tenant hook already rejected this; defensive no-op.
+        return None
+
+    if not _read_auth_required(tenant_id):
+        return None
+
+    # Tenant-bound token required. Two accepted credentials:
+    #   1. HMAC step-up token, via X-Step-Up-Token or Authorization: Bearer.
+    #   2. A SMART-on-FHIR OAuth access token (the mechanism the
+    #      CapabilityStatement advertises), via Authorization: Bearer.
+    # Try step-up first; if that fails and a bearer is present, fall back to
+    # the OAuth validator. 401 only when BOTH fail.
+    bearer = ''
+    auth = (request.headers.get('Authorization') or '').strip()
+    if auth.lower().startswith('bearer '):
+        bearer = auth[7:].strip()
+
+    step_up = (request.headers.get('X-Step-Up-Token') or '').strip() or bearer
+
+    valid = False
+    if step_up:
+        # validate_step_up_token returns (bool, str) — destructure both;
+        # never coerce the tuple to a boolean.
+        valid, _err = validate_step_up_token(step_up, tenant_id)
+
+    if not valid and bearer:
+        valid = _validate_oauth_read(bearer, tenant_id)
+
+    if not valid:
+        # Do NOT leak whether the tenant exists or why the token failed.
+        return _operation_outcome(
+            'error', 'security',
+            f"Read access to tenant '{tenant_id}' requires authentication",
+        ), 401
+    return None
+
+
+# Scopes that grant FHIR read access. patient/*.read is the SMART-on-FHIR v2
+# read scope; fhir.read is this server's coarse read scope. Either authorizes
+# a redacted read.
+_OAUTH_READ_SCOPES = frozenset({
+    'patient/*.read', 'smart/patient/*.read', 'fhir.read', 'user/*.read',
+    'system/*.read',
+})
+
+
+def _validate_oauth_read(bearer, tenant_id):
+    """Validate an OAuth bearer access token for a read of `tenant_id`.
+
+    Returns True only when the token is valid (not expired/revoked), its
+    associated tenant matches X-Tenant-Id (no cross-tenant reuse), and it
+    carries a read scope. This is what makes the CapabilityStatement's
+    SMART-on-FHIR advertisement actually authorize reads.
+    """
+    ok, info = validate_bearer_token(bearer)
+    if not ok or not isinstance(info, dict):
+        return False
+    if info.get('tenant_id') != tenant_id:
+        return False
+    token_scopes = set(info.get('scopes') or [])
+    return bool(token_scopes & _OAUTH_READ_SCOPES)
 
 
 # --- Human-in-the-Loop Enforcement ---
@@ -198,6 +341,15 @@ def check_human_confirmation():
     result = enforce_human_in_loop()
     if result:
         return result
+
+
+def _oauth_base():
+    """Base URL for SMART OAuth endpoints, matching r6.oauth's discovery docs.
+
+    Built from the request host the same way oauth.py builds its
+    .well-known/smart-configuration endpoints — never hardcode the domain.
+    """
+    return request.host_url.rstrip('/') + '/r6/fhir/oauth'
 
 
 @r6_blueprint.route('/metadata', methods=['GET'])
@@ -236,36 +388,23 @@ def r6_metadata():
         'rest': [
             {
                 'mode': 'server',
-                # Advertise the SMART OAuth service so the metadata reflects the
-                # actual security posture. Tenant access is scoped to an
-                # authenticated tenant (step-up token or SMART Bearer); synthetic
-                # demo tenants are public.
                 'security': {
                     'cors': True,
                     'service': [{
                         'coding': [{
                             'system': 'http://terminology.hl7.org/CodeSystem/restful-security-service',
                             'code': 'SMART-on-FHIR',
-                            'display': 'SMART-on-FHIR',
-                        }],
-                        'text': 'OAuth2 via SMART App Launch (see http://docs.smarthealthit.org)',
+                            'display': 'SMART-on-FHIR'
+                        }]
                     }],
                     'extension': [{
                         'url': 'http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris',
                         'extension': [
-                            {'url': 'authorize', 'valueUri': request.host_url.rstrip('/') + '/r6/fhir/oauth/authorize'},
-                            {'url': 'token', 'valueUri': request.host_url.rstrip('/') + '/r6/fhir/oauth/token'},
-                            {'url': 'register', 'valueUri': request.host_url.rstrip('/') + '/r6/fhir/oauth/register'},
-                            {'url': 'revoke', 'valueUri': request.host_url.rstrip('/') + '/r6/fhir/oauth/revoke'},
-                        ],
-                    }],
-                    'description': (
-                        'Access is scoped to the authenticated tenant. Synthetic '
-                        'demo tenants are publicly readable; all other tenants '
-                        'require a tenant-bound step-up token or a SMART Bearer '
-                        'token. Write operations additionally require step-up '
-                        'authorization and human confirmation.'
-                    ),
+                            {'url': 'authorize', 'valueUri': _oauth_base() + '/authorize'},
+                            {'url': 'token', 'valueUri': _oauth_base() + '/token'},
+                            {'url': 'register', 'valueUri': _oauth_base() + '/register'},
+                        ]
+                    }]
                 },
                 'resource': [
                     _resource_capability(rt) for rt in R6Resource.SUPPORTED_TYPES
@@ -1483,10 +1622,27 @@ def health_check():
 def issue_step_up_token():
     """
     Issue a step-up token for the dashboard demo.
-    In production, this would be gated behind an admin auth flow.
+
+    Token-mint oracle protection: minting a token for a NON-public tenant is a
+    read-auth bypass (anyone could mint a tenant-bound read token), so when
+    INTERNAL_TOKEN_MINT_SECRET is set the caller must present a matching
+    X-Internal-Secret header (constant-time compare) — otherwise 403.
+
+    Public/synthetic tenants stay open even with the secret set: they bypass
+    read-auth anyway, and the demo dashboard + telemetry mint desktop-demo
+    tokens from the browser, where no secret can be held. If the env var is
+    unset, the endpoint is fully open (dev/demo, backward compatible).
     """
     body = request.get_json(silent=True) or {}
     tenant_id = body.get('tenant_id') or request.headers.get('X-Tenant-Id', 'default')
+
+    from r6.command_center.access import is_public
+    mint_secret = os.environ.get('INTERNAL_TOKEN_MINT_SECRET')
+    if mint_secret and not is_public(tenant_id):
+        provided = request.headers.get('X-Internal-Secret', '')
+        if not hmac.compare_digest(provided, mint_secret):
+            return jsonify({'error': 'forbidden'}), 403
+
     try:
         token = generate_step_up_token(tenant_id)
         return jsonify({'token': token, 'tenant_id': tenant_id})

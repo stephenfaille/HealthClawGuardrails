@@ -19,6 +19,44 @@ DEFAULT_WINDOW_SECONDS = 60
 _rate_limits = {}
 
 
+def _client_ip():
+    """
+    Best-effort client IP for rate-limit keying. Used only as a rate-limit
+    bucket key — never for auth.
+
+    Behind a single trusted proxy (Railway/Vercel edge), the LAST entry in
+    X-Forwarded-For is the IP appended by that trusted proxy — i.e. the real
+    peer it saw. The leftmost entries are attacker-controllable: a client can
+    inject "X-Forwarded-For: spoofed" and split the bucket arbitrarily. Taking
+    the rightmost hop removes that spoofing surface for our 1-proxy topology.
+    (If proxy depth changes, count back that many hops instead.)
+    """
+    fwd = request.headers.get('X-Forwarded-For', '')
+    if fwd:
+        hops = [h.strip() for h in fwd.split(',') if h.strip()]
+        if hops:
+            return hops[-1]
+    return request.remote_addr or 'unknown'
+
+
+def rate_limit_key():
+    """
+    Resolve the bucket key for the current request.
+
+    Prefers the X-Tenant-Id header so authenticated traffic is throttled per
+    tenant. When no tenant header is present (e.g. provider webhook callbacks
+    at /r6/actions/callback/<provider>, which carry no tenant), key by client
+    IP instead of dumping every untenanted request into one shared 'anonymous'
+    bucket — that shared bucket would let one source exhaust the limit for all
+    untenanted callers. The IP key is prefixed so it can never collide with a
+    real tenant id.
+    """
+    tenant_id = request.headers.get('X-Tenant-Id')
+    if tenant_id:
+        return tenant_id
+    return f'ip:{_client_ip()}'
+
+
 def check_rate_limit(tenant_id, max_requests=DEFAULT_RATE_LIMIT,
                      window_seconds=DEFAULT_WINDOW_SECONDS):
     """
@@ -51,8 +89,7 @@ def rate_limit_middleware(blueprint):
     @blueprint.after_request
     def add_rate_limit_headers(response):
         """Add rate limit headers to every response."""
-        tenant_id = request.headers.get('X-Tenant-Id', 'anonymous')
-        entry = _rate_limits.get(tenant_id)
+        entry = _rate_limits.get(rate_limit_key())
         if entry:
             remaining = max(0, DEFAULT_RATE_LIMIT - entry['count'])
             response.headers['X-RateLimit-Limit'] = str(DEFAULT_RATE_LIMIT)
@@ -71,8 +108,7 @@ def rate_limit_middleware(blueprint):
         if request.path.endswith('/smart-configuration'):
             return None
 
-        tenant_id = request.headers.get('X-Tenant-Id', 'anonymous')
-        allowed, remaining, reset_at = check_rate_limit(tenant_id)
+        allowed, remaining, reset_at = check_rate_limit(rate_limit_key())
 
         if not allowed:
             response = jsonify({
