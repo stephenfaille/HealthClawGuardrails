@@ -235,6 +235,101 @@ describe("Tool Execution Tests", () => {
     expect(JSON.parse(mockFetch.mock.calls[0][1].body).tenant_id).toBe("explicit-tenant");
   });
 
+  // -- ensureReadToken / READ_TOKEN_AUTOMINT (read-path consumer hardening) --
+
+  it("read tool makes NO mint call when READ_TOKEN_AUTOMINT is unset (current behavior)", async () => {
+    const prev = process.env.READ_TOKEN_AUTOMINT;
+    delete process.env.READ_TOKEN_AUTOMINT;
+
+    const fhirPatient = { resourceType: "Patient", id: "pt-1" };
+    mockFetch.mockResolvedValueOnce(fakeResponse(fhirPatient));
+
+    try {
+      await tools.executeTool(
+        "fhir_read",
+        { resource_type: "Patient", resource_id: "pt-1" },
+        { "x-tenant-id": "no-automint-tenant" }
+      );
+
+      // Exactly one fetch — the read itself, no mint.
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${BASE}/Patient/pt-1`);
+      expect(opts.headers["X-Step-Up-Token"]).toBeUndefined();
+    } finally {
+      if (prev === undefined) delete process.env.READ_TOKEN_AUTOMINT;
+      else process.env.READ_TOKEN_AUTOMINT = prev;
+    }
+  });
+
+  it("read tool mints a token first then forwards it when READ_TOKEN_AUTOMINT=true and no incoming token", async () => {
+    const prevAutomint = process.env.READ_TOKEN_AUTOMINT;
+    const prevSecret = process.env.INTERNAL_TOKEN_MINT_SECRET;
+    process.env.READ_TOKEN_AUTOMINT = "true";
+    process.env.INTERNAL_TOKEN_MINT_SECRET = "mint-secret-xyz";
+    // Unique tenant so the module-level token cache starts cold for this test.
+    const tenant = `automint-${Date.now()}`;
+
+    const fhirPatient = { resourceType: "Patient", id: "pt-1" };
+    mockFetch
+      .mockResolvedValueOnce(fakeResponse({ token: "minted-read-tok" })) // mint
+      .mockResolvedValueOnce(fakeResponse(fhirPatient)); // read
+
+    try {
+      const result = await tools.executeTool(
+        "fhir_read",
+        { resource_type: "Patient", resource_id: "pt-1" },
+        { "x-tenant-id": tenant }
+      );
+
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      // Call 1: mint endpoint with internal secret + tenant.
+      const [mintUrl, mintOpts] = mockFetch.mock.calls[0];
+      expect(mintUrl).toBe(`${BASE}/internal/step-up-token`);
+      expect(mintOpts.method).toBe("POST");
+      expect(mintOpts.headers["X-Internal-Secret"]).toBe("mint-secret-xyz");
+      expect(JSON.parse(mintOpts.body).tenant_id).toBe(tenant);
+
+      // Call 2: the actual read, now carrying the minted token.
+      const [readUrl, readOpts] = mockFetch.mock.calls[1];
+      expect(readUrl).toBe(`${BASE}/Patient/pt-1`);
+      expect(readOpts.headers["X-Step-Up-Token"]).toBe("minted-read-tok");
+
+      expect(result).toEqual(fhirPatient);
+    } finally {
+      if (prevAutomint === undefined) delete process.env.READ_TOKEN_AUTOMINT;
+      else process.env.READ_TOKEN_AUTOMINT = prevAutomint;
+      if (prevSecret === undefined) delete process.env.INTERNAL_TOKEN_MINT_SECRET;
+      else process.env.INTERNAL_TOKEN_MINT_SECRET = prevSecret;
+    }
+  });
+
+  it("read tool with caller-provided step-up token does NOT mint (token left untouched)", async () => {
+    const prevAutomint = process.env.READ_TOKEN_AUTOMINT;
+    process.env.READ_TOKEN_AUTOMINT = "true";
+
+    const fhirPatient = { resourceType: "Patient", id: "pt-1" };
+    mockFetch.mockResolvedValueOnce(fakeResponse(fhirPatient));
+
+    try {
+      await tools.executeTool(
+        "fhir_read",
+        { resource_type: "Patient", resource_id: "pt-1" },
+        { "x-tenant-id": "byo-token-tenant", "x-step-up-token": "caller-token" }
+      );
+
+      // No mint call — caller already supplied a token.
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${BASE}/Patient/pt-1`);
+      expect(opts.headers["X-Step-Up-Token"]).toBe("caller-token");
+    } finally {
+      if (prevAutomint === undefined) delete process.env.READ_TOKEN_AUTOMINT;
+      else process.env.READ_TOKEN_AUTOMINT = prevAutomint;
+    }
+  });
+
   it("fhir.search builds correct query params and adds _mcp_summary", async () => {
     const bundle = {
       resourceType: "Bundle",
