@@ -71,6 +71,8 @@ railway up                  # Railway (full-stack)
 vercel deploy --prod        # Vercel (marketing + API serverless)
 ```
 
+**`.env` is NOT auto-loaded** — no code calls `load_dotenv`. Env vars come from the shell (local) or the platform (Railway/Vercel). Running `python main.py` after only editing `.env` won't pick up the new values; export them or source the file yourself. (Consequence: a key present in `.env` but absent from the process env behaves as unset — e.g. a missing provider key silently drops the action layer into simulation mode.)
+
 ## Key Directories
 
 ```text
@@ -125,6 +127,7 @@ Same pattern for `shl-server` (Dockerfile + railway.toml only). Setting a variab
 - Before any PHI/audit/access-control change: check `.claude/compliance/hipaa.md`.
 - Always emit AuditEvent for FHIR resource access.
 - Step-up authorization required for all write operations.
+- **Tenant reads are authenticated, not just tenant-scoped** (`enforce_tenant_id` in `r6/routes.py`). A bare `X-Tenant-Id` only works for tenants in `PUBLIC_TENANTS` (synthetic demo tenants) or SHARP-on-MCP requests (which carry their own SMART token to the upstream). Every other tenant must send a tenant-bound `X-Step-Up-Token` OR a SMART `Authorization: Bearer` whose `tenant_id` matches — else `401`. Mint a read token via `POST /r6/fhir/internal/step-up-token`. The `/metadata` CapabilityStatement advertises the SMART OAuth service in its `rest.security` block.
 
 ### Python version
 
@@ -159,7 +162,7 @@ Column names differ from what you might guess:
 
 **20 tools in three groups:**
 
-- **Read** (no step-up): `context_get`, `fhir_read`, `fhir_search`, `fhir_validate`, `fhir_stats`, `fhir_lastn`, `fhir_permission_evaluate`, `fhir_subscription_topics`, `curatr_evaluate`, `action_status`
+- **Read** (no step-up *for public tenants only*): `context_get`, `fhir_read`, `fhir_search`, `fhir_validate`, `fhir_stats`, `fhir_lastn`, `fhir_permission_evaluate`, `fhir_subscription_topics`, `curatr_evaluate`, `action_status`. Since the read-auth gate landed, reads against a **non-public** tenant also need a tenant-bound token — the MCP server must mint one (`fhir_get_token`) and forward it as `X-Step-Up-Token`/`_stepUpToken` on reads too, or those calls 401. The default `desktop-demo` tenant is public, so default-tenant reads are unaffected.
 - **Write** (require step-up): `fhir_propose_write`, `fhir_commit_write`, `curatr_apply_fix`, `action_propose`, `action_commit`, `shl_generate`
 - **Utility**: `fhir_compiled_truth`, `fhir_get_token`, `fhir_seed`
 
@@ -228,6 +231,8 @@ Post-ingest Telegram push: `r6.telegram_push.notify_tenant` is called directly v
 - `tenant_headers` — read-only tenant headers
 - Sample resources: `sample_patient`, `sample_observation`, `sample_bundle`, `sample_permission`, `sample_subscription_topic`, `sample_nutrition_intake`, `sample_device_alert`
 
+**Testing write paths against a live server:** `POST /r6/fhir/internal/step-up-token` with `{"tenant_id": "..."}` returns a `token` signed with that server's `STEP_UP_SECRET` — the only way to get a valid token for a deployed server (you can't mint one locally unless the local `STEP_UP_SECRET` matches the deployed one). Use it for action/FHIR commit smoke tests; pass as `X-Step-Up-Token`.
+
 ## CI (`.github/workflows/ci.yml`)
 
 Seven jobs: `python-tests`, `node-tests`, `playwright-tests`, `compose-smoke`, `compliance-gates`, `secret-scan`, `dependency-audit`.
@@ -251,7 +256,7 @@ Real-world actions (phone calls, SMS) behind the same guardrails as FHIR writes.
 - Executors log `type(exc).__name__` and HTTP status codes only — `str(exc)` can leak the secret-bearing webhook URL.
 - No retries on calls — by design.
 
-**Env vars:** `BLAND_AI_API_KEY` (calls), `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM_NUMBER` (SMS — all three or hard-fail), `ACTIONS_WEBHOOK_SECRET` (callbacks 403 without it), `PUBLIC_BASE_URL` (webhook base, defaults to app.healthclaw.io). Absent provider keys → simulation mode (commit completes synchronously).
+**Env vars:** `BLAND_AI_API_KEY` (calls; `BLAND_API_KEY` accepted as an alias — either name dials for real), `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN`/`TWILIO_FROM_NUMBER` (SMS — all three or hard-fail), `ACTIONS_WEBHOOK_SECRET` (callbacks 403 without it), `PUBLIC_BASE_URL` (webhook base, defaults to app.healthclaw.io). Absent provider keys → simulation mode (commit completes synchronously).
 
 **Design docs:** `docs/superpowers/specs/2026-06-12-unified-action-layer-design.md` (full integration spec — phases 2-6 cover skills, Flexpa, ainpi.dev lookup, SHL QR, careagents.cloud rewire) and `docs/superpowers/plans/2026-06-12-action-core.md` (Phase 1 plan, executed).
 
