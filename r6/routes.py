@@ -12,6 +12,7 @@ Validation: structural checks for required fields. Falls back when external
 validator unavailable. No StructureDefinition or terminology binding validation.
 """
 
+import hmac
 import json
 import logging
 import os
@@ -102,6 +103,46 @@ _VALID_BUNDLE_TYPES = {
 _PATIENT_REF_PATTERN = re.compile(r'^Patient/[A-Za-z0-9\-.]{1,64}$')
 
 
+# --- Read Authentication (flag-gated) ---
+
+
+def _read_auth_enabled():
+    """True only when READ_AUTH_ENABLED is explicitly turned on.
+
+    Defaults OFF — deploying this code changes nothing until the flag is
+    flipped. Re-read every call so the flag can be toggled without restart.
+    """
+    return os.environ.get('READ_AUTH_ENABLED', '').strip().lower() in (
+        '1', 'true', 'yes',
+    )
+
+
+def _public_read_tenants():
+    """Tenants readable without authentication (synthetic demo data).
+
+    Parsed from PUBLIC_TENANTS (comma-separated). Empty/unset → no public
+    tenants. Re-read every call so changes take effect without restart.
+    """
+    raw = os.environ.get('PUBLIC_TENANTS', '').strip()
+    if not raw:
+        return frozenset()
+    return frozenset(t.strip() for t in raw.split(',') if t.strip())
+
+
+def _read_auth_required(tenant_id):
+    """Whether a read for `tenant_id` must present a tenant-bound token.
+
+    False when the flag is off (no-op default) or the tenant is public.
+    True otherwise — caller must then validate a step-up token bound to
+    this tenant.
+    """
+    if not _read_auth_enabled():
+        return False
+    if tenant_id in _public_read_tenants():
+        return False
+    return True
+
+
 # --- Tenant Enforcement ---
 
 @r6_blueprint.before_request
@@ -152,6 +193,70 @@ def enforce_tenant_id():
                 'diagnostics': 'X-Tenant-Id must match [a-zA-Z0-9_-]{1,64}'
             }]
         }), 400
+
+
+@r6_blueprint.before_request
+def authenticate_read():
+    """Authenticate the tenant claim on FHIR reads (flag-gated).
+
+    The base header-only tenant enforcement does NOT authenticate the
+    X-Tenant-Id claim — any client can read a tenant's redacted data with
+    just the header. When READ_AUTH_ENABLED is on, GET reads of non-public
+    tenants must present a step-up token bound to that tenant.
+
+    Default behavior (flag off) is unchanged — this returns None and the
+    request proceeds exactly as before. Writes are not touched here; they
+    already require step-up in their own handlers.
+    """
+    # Only reads. Writes (POST/PUT/PATCH/DELETE) are gated elsewhere.
+    if request.method != 'GET':
+        return None
+
+    # No-op unless the flag is explicitly enabled.
+    if not _read_auth_enabled():
+        return None
+
+    # Exempt the same public/discovery endpoints as the tenant hook —
+    # these have no tenant and need no auth.
+    path = request.path
+    if path.endswith('/metadata') or path.endswith('/health'):
+        return None
+    if '/internal/' in path or '/demo/' in path:
+        return None
+    if '/.well-known/' in path or '/oauth/' in path or '/mcp-apps/' in path:
+        return None
+
+    tenant_id = request.headers.get('X-Tenant-Id')
+    # SHARP-on-MCP requests carry their own FHIR-level identity (SMART
+    # access token) and a synthesized tenant; the upstream proxy enforces
+    # auth. Don't double-gate them.
+    if not tenant_id and is_sharp_context_active():
+        return None
+    if not tenant_id:
+        # The tenant hook already rejected this; defensive no-op.
+        return None
+
+    if not _read_auth_required(tenant_id):
+        return None
+
+    # Tenant-bound token required. Accept X-Step-Up-Token or
+    # Authorization: Bearer <token> as an alias.
+    token = (request.headers.get('X-Step-Up-Token') or '').strip()
+    if not token:
+        auth = (request.headers.get('Authorization') or '').strip()
+        if auth.lower().startswith('bearer '):
+            token = auth[7:].strip()
+
+    valid = False
+    if token:
+        valid, _err = validate_step_up_token(token, tenant_id)
+    if not valid:
+        # Do NOT leak whether the tenant exists or why the token failed.
+        return _operation_outcome(
+            'error', 'security',
+            f"Read access to tenant '{tenant_id}' requires authentication",
+        ), 401
+    return None
 
 
 # --- Human-in-the-Loop Enforcement ---
@@ -1416,8 +1521,19 @@ def health_check():
 def issue_step_up_token():
     """
     Issue a step-up token for the dashboard demo.
-    In production, this would be gated behind an admin auth flow.
+
+    Token-mint oracle protection: if INTERNAL_TOKEN_MINT_SECRET is set, the
+    caller must present a matching X-Internal-Secret header (constant-time
+    compare) — otherwise 403. With read-auth enabled, an open mint endpoint
+    would be a trivial bypass (anyone could mint a tenant-bound read token).
+    If the env var is unset, behavior is unchanged (open) for dev/demo.
     """
+    mint_secret = os.environ.get('INTERNAL_TOKEN_MINT_SECRET')
+    if mint_secret:
+        provided = request.headers.get('X-Internal-Secret', '')
+        if not hmac.compare_digest(provided, mint_secret):
+            return jsonify({'error': 'forbidden'}), 403
+
     body = request.get_json(silent=True) or {}
     tenant_id = body.get('tenant_id') or request.headers.get('X-Tenant-Id', 'default')
     try:
