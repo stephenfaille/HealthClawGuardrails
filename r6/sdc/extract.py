@@ -93,8 +93,15 @@ def _extract_by_definition(questionnaire, answers, subject_ref):
 def _set_path(resource, dotted_path, value):
     """Set a value at an element path like 'Patient.name.family'.
 
-    The leading resource-type segment is dropped. A `name` segment is treated
-    as the conventional repeating HumanName (index 0); otherwise scalar.
+    The leading resource-type segment is dropped.
+
+    v1 scope: only `name.*` (HumanName index 0; `given` appends) and
+    `birthDate` are mapped with correct FHIR cardinality. Any other path
+    falls through to a generic nested-dict scalar write — which is WRONG for
+    repeating elements (e.g. telecom, address, identifier are arrays). Such
+    paths are not part of the seeded-demo v1 surface; extending to arbitrary
+    US Core element paths is a future phase. Structural-only downstream
+    validation will NOT catch a malformed shape here.
     """
     parts = dotted_path.split(".")[1:]  # drop resource type
     if not parts:
