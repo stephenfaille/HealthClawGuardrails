@@ -370,6 +370,18 @@ jobs:
           print(f'S1 PASS: invalid resource rejected with {\"$STATUS\"}')
           "
 
+      - name: H-SDC — $extract requires step-up
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST http://localhost:5000/r6/fhir/QuestionnaireResponse/\$extract \
+            -H "Content-Type: application/json" \
+            -H "X-Tenant-ID: compliance-test" \
+            -d '{"resourceType":"Parameters","parameter":[{"name":"questionnaire-response","resource":{"resourceType":"QuestionnaireResponse","status":"completed"}}]}')
+          python3 -c "
+          assert '$STATUS' == '401', f'H-SDC FAIL: \$extract without step-up returned $STATUS not 401'
+          print('H-SDC PASS: \$extract without step-up token returns 401')
+          "
+
       - name: Show container logs on failure
         if: failure()
         run: docker compose logs fhir-mcp-guardrails
