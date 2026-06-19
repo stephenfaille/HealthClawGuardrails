@@ -1,11 +1,40 @@
 # HealthClaw Guardrails
 
-The security layer between AI agents and clinical data. A [healthclaw.io](https://healthclaw.io) open source project.
+An **open reference implementation** of the security and compliance layer between AI agents and clinical data — the FHIR × MCP guardrails nobody else has standardized. Built in the open as a community project, MIT-licensed. Use it, fork it, send a PR — see **[CONTRIBUTING.md](CONTRIBUTING.md)**.
 
-**v1.5.0** | 614 Python + 65 Node tests | 20 MCP tools | FHIR R4 US Core v9 + R6 v6.0.0-ballot3 | Fasten TEFCA · HealthEx · HBO · Flexpa · Epic · MEDENT | Open Wearables | Real-world actions (calls/SMS) | SMART Health Links | Claude Code plugin
+**v1.5.0** | 700+ Python + 74 Node tests | 23 MCP tools | FHIR R4 US Core v9 + R6 v6.0.0-ballot3 | HL7 SDC forms ($populate/$extract) | Fasten TEFCA · HealthEx · HBO · Flexpa · Epic · MEDENT | Open Wearables | Real-world actions (calls/SMS) | SMART Health Links | Claude Code plugin
 
 > FHIR standardized how health data is structured. MCP standardized how AI connects to tools.
-> Nobody standardized the guardrails in between. This project does.
+> Nobody standardized the guardrails in between. This is a shared, open reference for that layer —
+> not a product, not a pitch. If the pattern is useful, take it; if it's wrong, tell us or fix it.
+
+**This is a community effort.** It's most useful if implementers, clinicians, and standards folks
+poke holes in it. Issues, PRs, and "you got the SDC extraction wrong" critiques are all welcome.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## What's new in v1.5.0 — Security Hardening + SDC Forms
+
+Two threads landed since v1.4.0: a **read-authentication hardening pass** on the guardrail core, and
+**HL7 Structured Data Capture (SDC)** support so the project can populate and extract healthcare forms
+the standard, interoperable way.
+
+**SDC form round-trip** — implements the two halves of [HL7 SDC](https://build.fhir.org/ig/HL7/sdc/):
+
+| Operation | What it does | Mechanisms (v1) |
+| --- | --- | --- |
+| `POST /r6/fhir/Questionnaire[/<id>]/$populate` | Questionnaire + subject → pre-filled `QuestionnaireResponse` | expression-based (`initialExpression` FHIRPath) + observation-based (`item.code` LOINC) |
+| `POST /r6/fhir/QuestionnaireResponse/$extract` | completed `QuestionnaireResponse` → transaction `Bundle` | observation-based (`observationExtract`) + definition-based (`definitionExtract`) |
+
+- Pure, Flask-free transform engines in `r6/sdc/` (`expressions.py`, `populate.py`, `extract.py`); the route layer owns auth, audit, step-up, and store I/O.
+- `$populate` is read-shaped (tenant-read-authenticated + AuditEvent); `$extract` reuses the existing write path — step-up + per-resource `$validate` on commit, with `?dryRun=true` to preview the Bundle without committing.
+- Two new MCP tools — `questionnaire_populate` (read) and `questionnaire_extract` (write) — so an agent can fill and extract forms end-to-end.
+- A seeded `healthclaw-intake` demo Questionnaire shows the full populate → complete → extract loop.
+
+**Security hardening** — `X-Tenant-Id` reads are now **authenticated, not just tenant-scoped**: non-public tenants must present a tenant-bound step-up token or a matching SMART bearer (a bare header gets `401`). Plus a public-tenant-aware token-mint guard, the SMART OAuth service advertised in `/metadata`, and dependency CVE bumps (PyJWT, npm advisories).
+
+**Deliberate compliance postures** (documented in [CLAUDE.md](CLAUDE.md) and the [design spec](docs/superpowers/specs/2026-06-17-sdc-populate-extract-design.md)):
+- `$populate` returns **unredacted** PHI by design — a form must hold real data, and the read-auth gate is the compensating control. An optional `?redaction=` opt-in is a tracked follow-up.
+- `$extract` commit is treated as an ingest-class operation (like `Bundle/$ingest-context`): step-up + `$validate` gate the write; it is exempt from the per-resource `X-Human-Confirmed` gate.
 
 ## What's new in v1.4.0 — Multi-Connector Health Data Pipeline
 
@@ -123,11 +152,11 @@ docker-compose up -d --build
 # - redis (port 6379)
 ```
 
-## MCP Tools (14)
+## MCP Tools (23)
 
 Tool names use underscores (not dots) for Claude Desktop / MCP client compatibility.
 
-**Read tools** (no step-up required):
+**Read tools** (no step-up for public tenants):
 
 | Tool | Description |
 | --- | --- |
@@ -139,7 +168,9 @@ Tool names use underscores (not dots) for Claude Desktop / MCP client compatibil
 | `fhir_lastn` | Most recent N observations per code |
 | `fhir_permission_evaluate` | R6 Permission access control evaluation |
 | `fhir_subscription_topics` | List available SubscriptionTopics |
+| `questionnaire_populate` | SDC `$populate` — pre-fill a Questionnaire for a subject |
 | `curatr_evaluate` | Evaluate a FHIR resource for data quality issues |
+| `action_status` | Poll a real-world action (call/SMS) |
 
 **Write tools** (require step-up token):
 
@@ -147,7 +178,10 @@ Tool names use underscores (not dots) for Claude Desktop / MCP client compatibil
 | --- | --- |
 | `fhir_propose_write` | Validate + preview without committing |
 | `fhir_commit_write` | Commit with step-up auth + human-in-the-loop |
+| `questionnaire_extract` | SDC `$extract` — extract resources from a completed QuestionnaireResponse |
 | `curatr_apply_fix` | Apply patient-approved fixes with Provenance tracking |
+| `action_propose` / `action_commit` | Propose / commit a real-world phone call or SMS |
+| `shl_generate` | Generate an encrypted SMART Health Link (QR) |
 
 **Utility tools:**
 
@@ -155,6 +189,7 @@ Tool names use underscores (not dots) for Claude Desktop / MCP client compatibil
 | --- | --- |
 | `fhir_get_token` | Issue a 5-minute step-up token (call before any write) |
 | `fhir_seed` | Seed a tenant with demo Patient + Observations + Condition |
+| `fhir_compiled_truth` | Current state + Provenance evidence timeline |
 
 All tools add `_mcp_summary` with reasoning, clinical context, and limitations.
 
@@ -193,7 +228,7 @@ Both R4 and R6 resources flow through the same guardrail stack (PHI redaction, a
 ## Testing
 
 ```bash
-# Python tests (266 tests)
+# Python tests (700+ across 30+ files; includes the SDC test_sdc_*.py suite)
 uv run python -m pytest tests/ -v
 uv run python -m pytest tests/test_r6_routes.py::test_name -v   # single test
 
@@ -217,6 +252,8 @@ cd e2e && npm run test:ui        # interactive UI mode
 | `/r6/fhir/{type}/{id}` | GET | Read resource (redacted) |
 | `/r6/fhir/{type}/{id}` | PUT | Update resource (requires step-up + ETag) |
 | `/r6/fhir/{type}/$validate` | POST | Validate resource |
+| `/r6/fhir/Questionnaire[/{id}]/$populate` | POST | SDC — pre-fill a QuestionnaireResponse from a subject |
+| `/r6/fhir/QuestionnaireResponse/$extract` | POST | SDC — extract a transaction Bundle (`?dryRun=true` to preview) |
 | `/r6/fhir/{type}/{id}/$deidentify` | GET | HIPAA Safe Harbor de-identification |
 | `/r6/fhir/Observation/$stats` | GET | Observation statistics |
 | `/r6/fhir/Observation/$lastn` | GET | Most recent observations |
@@ -539,6 +576,21 @@ in-process cache when Redis is unavailable).
 - No historical versioning (version_id increments but old versions not retrievable)
 - Upstream proxy: no response caching, no cross-version translation
 
+## Contributing — this is a community effort
+
+HealthClaw Guardrails is developed in the open as a shared reference, not a commercial product.
+The guardrail layer between AI agents and clinical data only gets trustworthy if a lot of people
+with different vantage points pressure-test it. We especially want:
+
+- **Implementers** building FHIR × MCP integrations — tell us where the patterns break in the real world.
+- **Clinicians & compliance folks** — challenge the redaction profiles, audit model, and the documented HIPAA postures.
+- **Standards people** (HL7 / SDC / SMART) — tell us where we've diverged from the spec, especially on `$populate`/`$extract`.
+- **Anyone** — open an issue, file a "you got this wrong," or send a PR.
+
+Start here: **[CONTRIBUTING.md](CONTRIBUTING.md)** · **[Code of Conduct](CODE_OF_CONDUCT.md)** · **[CHANGELOG.md](CHANGELOG.md)** · **[Security policy](SECURITY.md)**
+
+Good first contributions are labeled in the issue tracker. No CLA, no gatekeeping — just the MIT license below.
+
 ## License
 
-MIT
+MIT — free to use, fork, and build on. See [LICENSE](LICENSE).

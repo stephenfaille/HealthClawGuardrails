@@ -386,7 +386,7 @@
 <div class="hero-wrap" id="hero-wrap">
   <div class="hero-glow"></div>
   <div class="hero-inner">
-    <div class="hero-eyebrow">Open Source &middot; MIT License &middot; FHIR R4 + R6</div>
+    <div class="hero-eyebrow">Open reference implementation &middot; MIT License &middot; Community project</div>
     <h1 class="hero-title">
       The guardrail layer between<br>
       <span style="color:var(--cyan)">AI agents</span> and
@@ -394,11 +394,12 @@
     </h1>
     <p class="hero-sub">
       FHIR standardized health data. MCP standardized how AI connects to tools.
-      HealthClaw standardizes the security, privacy, and clinical safety guardrails in between.
+      Nobody standardized the guardrails in between &mdash; so we're building a shared, open
+      reference for that layer, in the open. Not a product. Use it, fork it, send a PR.
     </p>
     <div class="hero-ctas">
       <a href="{{ url_for('r6_dashboard') }}" class="btn-primary">Try the Live Dashboard</a>
-      <a href="{{ url_for('wiki') }}" class="btn-outline">Read the Docs</a>
+      <a href="https://github.com/aks129/HealthClawGuardrails/blob/main/CONTRIBUTING.md" target="_blank" rel="noopener" class="btn-outline">Get involved &rarr;</a>
     </div>
   </div>
 </div>
@@ -406,15 +407,15 @@
 <!-- ═══ STATS ═══ -->
 <div class="stats-row">
   <div class="stat">
-    <span class="stat-num" data-target="15">0</span>
+    <span class="stat-num" data-target="23">0</span>
     <div class="stat-label">MCP Tools</div>
   </div>
   <div class="stat">
-    <span class="stat-num" data-target="37">0</span>
+    <span class="stat-num" data-target="39">0</span>
     <div class="stat-label">FHIR Resource Types</div>
   </div>
   <div class="stat">
-    <span class="stat-num" data-target="288">0</span>
+    <span class="stat-num" data-target="712">0</span>
     <div class="stat-label">Tests Passing</div>
   </div>
   <div class="stat">
@@ -650,7 +651,8 @@
       <div class="audience-title">AI Agent Developer</div>
       <div class="audience-sub" style="color:var(--cyan)">Ship HIPAA-safe agents in minutes, not months</div>
       <ul class="audience-list" style="--dot:var(--cyan)">
-        <li style="--before-color:var(--cyan)">15 MCP tools — drop into Claude Desktop or any MCP client</li>
+        <li style="--before-color:var(--cyan)">23 MCP tools — drop into Claude Desktop or any MCP client</li>
+        <li style="--before-color:var(--cyan)">Fill & extract forms the standard way — HL7 SDC $populate / $extract</li>
         <li style="--before-color:var(--cyan)">One-line Claude Code install (marketplace below)</li>
         <li style="--before-color:var(--cyan)">Works with any FHIR server (HAPI, Epic, Medplum, AWS)</li>
         <li style="--before-color:var(--cyan)">PHI redaction, audit, step-up auth — zero config</li>
@@ -682,7 +684,7 @@
         <li style="--before-color:var(--amber)">Vendor-neutral proxy — works with your existing FHIR stack</li>
         <li style="--before-color:var(--amber)">Tenant isolation, immutable audit, OAuth 2.1 + PKCE</li>
         <li style="--before-color:var(--amber)">Human-in-the-loop for clinical writes (HTTP 428 pattern)</li>
-        <li style="--before-color:var(--amber)">288 tests, Playwright e2e, open source (MIT)</li>
+        <li style="--before-color:var(--amber)">712 tests, Playwright e2e, open source (MIT)</li>
       </ul>
       <div class="audience-cta" style="color:var(--amber)">Architecture →</div>
     </a>
