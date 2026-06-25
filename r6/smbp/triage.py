@@ -5,6 +5,12 @@ and the clinician report flags all classify through here so they cannot drift.
 
 Administrative logic only: this classifies a reading into an action band; it
 never produces clinical advice text.
+
+Emergency-cutout interpretation (deliberate): a screened symptom escalates to
+the emergency pathway only when the reading is also severe (>=180/120). A symptom
+at a non-severe reading is NOT auto-classified as emergency. This follows the
+spec's §2.2 band table; the spec's prose phrasing ("...OR any symptom") is
+reconciled to the table here. Pending clinical sign-off.
 """
 
 # Home BP diagnostic threshold (NOT the office 140/90).

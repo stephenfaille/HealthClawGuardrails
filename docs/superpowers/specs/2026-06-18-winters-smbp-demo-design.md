@@ -125,6 +125,17 @@ implementation the skill, the voice script, and the report flags all call, so th
 - **Every outbound action human-confirmed** via the existing action layer loop.
 - **All PHI synthetic/composite** — no detail traceable to a real patient.
 
+### Clinical interpretation decision (pending sign-off)
+
+The source spec is internally inconsistent on the emergency cutout: the §2.2 band
+table escalates a symptom to the emergency pathway only at a severe reading
+(≥180/120), while the prose says "≥180/120 **OR any symptom**." We implement the
+**band table**: a symptom escalates to emergency only when the reading is also
+≥180/120 (a symptom at a non-severe reading is logged/handled administratively,
+not auto-911). This is the safer-to-explain reading and is encoded once in
+`r6/smbp/triage.py`. **This needs a one-line clinical sign-off** (Dr. Gigi / the
+Winters clinical reviewer) and the source spec prose should be reconciled to match.
+
 ## Seed + tests
 
 - A synthetic `winters-demo` tenant: composite **Marisol** (smartphone, Spanish, office 145/92→139/89)
