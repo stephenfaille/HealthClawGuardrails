@@ -28,7 +28,7 @@ def build_report(patient_ref, patient_label, days, observations):
             "systolic": s,
             "diastolic": d,
             "band": band,
-            "flag": band not in ("normal",),
+            "flag": band != "normal",
         })
     avg = averages(observations)
     adh = adherence(days, observations)
@@ -111,8 +111,8 @@ def render_pdf(report):
     t = report["threshold"]
     thr = f"{t['systolic']}/{t['diastolic']}"
     elems = [
-        Paragraph(f"Home Blood Pressure (SMBP) Report — {report['patient_label']}",
-                  styles["Title"]),
+        Paragraph("Home Blood Pressure (SMBP) Report — %s"
+                  % _html.escape(report["patient_label"]), styles["Title"]),
         Paragraph(f"{report['days']}-day monitoring · {report['valid_days']} valid days · "
                   f"home threshold {thr}", styles["Normal"]),
         Spacer(1, 0.2 * inch),

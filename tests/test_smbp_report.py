@@ -40,3 +40,9 @@ def test_render_pdf_returns_pdf_bytes():
     pdf = render_pdf(rep)
     assert isinstance(pdf, (bytes, bytearray))
     assert pdf[:4] == b"%PDF"
+
+
+def test_render_pdf_escapes_label_special_chars():
+    rep = build_report("Patient/p1", "Smith & <Jones>", 14, _readings())
+    pdf = render_pdf(rep)  # must not raise
+    assert pdf[:4] == b"%PDF"
