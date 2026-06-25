@@ -1,5 +1,3 @@
-import json
-
 from r6.smbp.models import SMBPSession
 from r6.models import db
 

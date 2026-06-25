@@ -11,7 +11,8 @@ from r6.models import db
 
 
 def _utcnow():
-    return datetime.now(timezone.utc)
+    # Naive UTC to match the DateTime columns (mirrors r6/actions ProposedAction).
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class SMBPSession(db.Model):
