@@ -26,3 +26,10 @@ def test_unknown_key_raises():
     import pytest
     with pytest.raises(KeyError):
         msg("nonexistent_key", "en")
+
+
+def test_every_catalog_entry_has_both_languages():
+    from r6.smbp.content import CATALOG
+    for key, entry in CATALOG.items():
+        assert "en" in entry, f"{key} missing English"
+        assert "es" in entry, f"{key} missing Spanish"
