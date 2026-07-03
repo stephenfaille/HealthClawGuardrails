@@ -150,6 +150,9 @@ def apply_patient_controlled_redaction(resource, patient_id):
     result.pop('telecom', None)
     result.pop('address', None)
     result.pop('photo', None)
+    # Patient.contact[] carries emergency-contact name/phone/address — remove it
+    # wholesale (this output feeds SHL / $share-bundle external sharing).
+    result.pop('contact', None)
 
     # birthDate is PRESERVED — patient wants their own DOB in their store
 

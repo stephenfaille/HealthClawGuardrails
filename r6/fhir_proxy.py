@@ -131,7 +131,10 @@ class FHIRUpstreamProxy:
         self._client = httpx.Client(
             base_url=self.upstream_url,
             timeout=_UPSTREAM_TIMEOUT,
-            follow_redirects=True,
+            # SSRF: do NOT follow redirects. validate_upstream_url() only vets the
+            # initial URL; following a 3xx would let a validated public host
+            # redirect the server to cloud metadata / internal IPs.
+            follow_redirects=False,
             headers={
                 'Accept': 'application/fhir+json, application/json',
                 'User-Agent': 'HealthClaw-Guardrails/1.0.0',
@@ -413,7 +416,12 @@ def validate_upstream_url(url: str) -> bool:
     Requires https; blocks private / loopback / link-local / reserved hosts
     (including cloud metadata 169.254.169.254); honours an optional
     FHIR_UPSTREAM_ALLOWED_HOSTS allowlist. Hostnames are resolved and EVERY
-    resolved IP is checked (anti-DNS-rebinding). Returns False on any doubt.
+    resolved IP is checked. Returns False on any doubt.
+
+    Residual: the connection is not pinned to the validated IP, so a low-TTL
+    DNS-rebind between validation and connect is still theoretically possible —
+    use FHIR_UPSTREAM_ALLOWED_HOSTS in production to eliminate it. Redirect-based
+    SSRF is closed separately (the upstream client uses follow_redirects=False).
     """
     if not url:
         return False
