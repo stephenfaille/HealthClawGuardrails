@@ -88,7 +88,9 @@ def main():
                                    "Content-Type": "application/json"},
                           data=json.dumps({"tenant_id": args.tenant_id}))
         token = r.json().get("step_up_token") or r.json().get("token")
-    whdr = {**hdr, "X-Step-Up-Token": token or ""}
+    # Clinical resource creates (Condition/Observation) require step-up AND
+    # human-in-the-loop confirmation; a human runs this seeder for synthetic data.
+    whdr = {**hdr, "X-Step-Up-Token": token or "", "X-Human-Confirmed": "true"}
 
     cohort = build_quality_cohort()
     created = 0
