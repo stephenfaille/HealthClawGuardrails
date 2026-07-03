@@ -1,0 +1,693 @@
+{
+  "source": "healthclaw-mcp",
+  "tool_count": 23,
+  "tools": [
+    {
+      "name": "context_get",
+      "description": "Retrieve a pre-built context envelope with patient-centric FHIR resources. Returns bounded, policy-stamped, time-limited context.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "context_id": {
+            "type": "string",
+            "description": "Context envelope ID"
+          }
+        },
+        "required": [
+          "context_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_read",
+      "description": "Read a specific FHIR resource by type and ID. Supports FHIR R4 US Core v9 stable resources and FHIR R6 ballot3 experimental resources. Returns redacted resource with PHI protection.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "Patient",
+              "Encounter",
+              "Observation",
+              "AuditEvent",
+              "Consent",
+              "Permission",
+              "SubscriptionTopic",
+              "Subscription",
+              "NutritionIntake",
+              "NutritionProduct",
+              "DeviceAlert",
+              "DeviceAssociation",
+              "Requirements",
+              "ActorDefinition",
+              "Condition",
+              "Provenance",
+              "AllergyIntolerance",
+              "Immunization",
+              "MedicationRequest",
+              "Medication",
+              "MedicationDispense",
+              "Procedure",
+              "DiagnosticReport",
+              "CarePlan",
+              "CareTeam",
+              "Goal",
+              "DocumentReference",
+              "Location",
+              "Organization",
+              "Practitioner",
+              "PractitionerRole",
+              "RelatedPerson",
+              "Coverage",
+              "ServiceRequest",
+              "Specimen",
+              "FamilyMemberHistory"
+            ]
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "The resource ID"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_search",
+      "description": "Search for FHIR resources. Supports FHIR R4 US Core v9 stable resources and FHIR R6 ballot3 experimental resources. Supports patient, code, status, _lastUpdated, _count, _sort parameters. Returns paginated, redacted Bundle.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "enum": [
+              "Patient",
+              "Encounter",
+              "Observation",
+              "AuditEvent",
+              "Consent",
+              "Permission",
+              "SubscriptionTopic",
+              "Subscription",
+              "NutritionIntake",
+              "NutritionProduct",
+              "DeviceAlert",
+              "DeviceAssociation",
+              "Requirements",
+              "ActorDefinition",
+              "Condition",
+              "Provenance",
+              "AllergyIntolerance",
+              "Immunization",
+              "MedicationRequest",
+              "Medication",
+              "MedicationDispense",
+              "Procedure",
+              "DiagnosticReport",
+              "CarePlan",
+              "CareTeam",
+              "Goal",
+              "DocumentReference",
+              "Location",
+              "Organization",
+              "Practitioner",
+              "PractitionerRole",
+              "RelatedPerson",
+              "Coverage",
+              "ServiceRequest",
+              "Specimen",
+              "FamilyMemberHistory"
+            ]
+          },
+          "patient": {
+            "type": "string",
+            "description": "Patient reference filter (e.g., 'Patient/pt-1')"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code filter \u2014 matches code.coding[].code in JSON (e.g., '2339-0' for Glucose)"
+          },
+          "status": {
+            "type": "string",
+            "description": "Status filter (e.g., 'final', 'active', 'completed')"
+          },
+          "_lastUpdated": {
+            "type": "string",
+            "description": "Date filter with prefix (e.g., 'ge2024-01-01', 'le2024-12-31')"
+          },
+          "_count": {
+            "type": "integer",
+            "description": "Max results (1-50, capped for token safety)",
+            "default": 20
+          },
+          "_sort": {
+            "type": "string",
+            "description": "Sort order: '_lastUpdated' (asc) or '-_lastUpdated' (desc, default)"
+          }
+        },
+        "required": [
+          "resource_type"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_validate",
+      "description": "Validate a proposed FHIR R6 resource against structural rules. Returns OperationOutcome.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "object",
+            "description": "The FHIR resource to validate"
+          }
+        },
+        "required": [
+          "resource"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "questionnaire_populate",
+      "description": "SDC $populate \u2014 pre-fill a Questionnaire for a subject. Returns a QuestionnaireResponse. Read tier; mints a tenant token for non-public tenants.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionnaire_id": {
+            "type": "string",
+            "description": "Stored Questionnaire id"
+          },
+          "questionnaire": {
+            "type": "object",
+            "description": "Inline Questionnaire (overrides questionnaire_id)"
+          },
+          "subject_reference": {
+            "type": "string",
+            "description": "Subject reference, e.g. 'Patient/p1'"
+          }
+        },
+        "required": [
+          "subject_reference"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "questionnaire_extract",
+      "description": "SDC $extract \u2014 extract FHIR resources from a completed QuestionnaireResponse into a transaction Bundle. Write tier; requires step-up unless dry_run=true.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "questionnaire_response": {
+            "type": "object",
+            "description": "Completed QuestionnaireResponse"
+          },
+          "questionnaire": {
+            "type": "object",
+            "description": "The referenced Questionnaire (optional if resolvable by reference)"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Preview the Bundle without committing",
+            "default": false
+          }
+        },
+        "required": [
+          "questionnaire_response"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_propose_write",
+      "description": "Propose a write \u2014 validates the resource and returns a preview. Does NOT commit. Safe to call without step-up authorization.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "object",
+            "description": "The FHIR resource to write"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update"
+            ],
+            "description": "Write operation type"
+          }
+        },
+        "required": [
+          "resource",
+          "operation"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_commit_write",
+      "description": "Commit a previously proposed write. Requires step-up authorization token. This is a destructive operation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource": {
+            "type": "object",
+            "description": "The FHIR resource to commit"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update"
+            ]
+          }
+        },
+        "required": [
+          "resource",
+          "operation"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_stats",
+      "description": "Compute statistics (count, min, max, mean) over numeric Observation values. Standard FHIR $stats (since R4). Only supports valueQuantity. Filter by patient and/or code.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "LOINC code to filter Observations (e.g., '2339-0' for Glucose)"
+          },
+          "patient": {
+            "type": "string",
+            "description": "Patient reference filter (e.g., 'Patient/pt-1')"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_lastn",
+      "description": "Get the last N observations per code. Standard FHIR $lastn (since R4). Returns most recent observations by storage order.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "LOINC code filter"
+          },
+          "patient": {
+            "type": "string",
+            "description": "Patient reference filter"
+          },
+          "max": {
+            "type": "integer",
+            "description": "Max observations per code (default 1)",
+            "default": 1
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_permission_evaluate",
+      "description": "Evaluate R6 Permission resources for access control decisions. Returns permit/deny based on stored Permission rules. Separates access control (Permission) from consent records (Consent).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "subject": {
+            "type": "string",
+            "description": "Subject reference (e.g., 'Practitioner/dr-1')"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "delete"
+            ],
+            "description": "Action to evaluate"
+          },
+          "resource": {
+            "type": "string",
+            "description": "Resource reference to evaluate access for"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_subscription_topics",
+      "description": "List available SubscriptionTopics for event-driven subscriptions. R6 moves topic-based subscriptions toward Normative. Agents discover what events they can subscribe to.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "wearables_sync_status",
+      "description": "List wearable connections (Garmin, Oura, Polar, Suunto, Whoop, Fitbit, Strava, Ultrahuman) for a tenant, with last sync time, observation count, and status. Use this to tell a patient what's connected, when data last arrived, and surface a connection-management UI (via _meta.ui.resourceUri) so they can connect more providers. Data flows into HealthClaw as FHIR Observations with LOINC codes \u2014 agents read it via fhir_search like any other Observation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant to inspect. Defaults to the incoming X-Tenant-Id header."
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "sources_check",
+      "description": "Survey ALL connected health data sources (Fasten, HealthEx, Health Bank One, MEDENT, Flexpa, Epic/Health Skillz, wearables) at once \u2014 returns each source's connection status and the patient's record counts by type. Use when the patient asks what's connected or to check for data across services.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_compiled_truth",
+      "description": "Return the current best understanding of a FHIR resource plus the append-only evidence trail (Provenance entries) of how it got there. Use this before presenting resource-specific facts to a patient \u2014 surfaces curation_state and quality_score so the agent can say not just WHAT the record says but WHY it says it. Redacted, audited. Response includes _meta.ui.resourceUri pointing to an embeddable review UI.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "description": "FHIR resource type (e.g. 'Condition', 'AllergyIntolerance')"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the resource"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "curatr_evaluate",
+      "description": "Evaluate a FHIR resource for data quality issues. Checks coding elements against public terminology services (tx.fhir.org for SNOMED/LOINC, NLM for ICD-10-CM, RXNAV for RxNorm) and structural rules. Returns issues in plain language with patient-facing impact descriptions and resolution suggestions. Read-only \u2014 no step-up required.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "description": "FHIR resource type to evaluate (e.g. 'Condition')"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the resource to evaluate"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "curatr_apply_fix",
+      "description": "Apply patient-approved data quality fixes to a FHIR resource. Creates a linked Provenance record with full attribution. Requires step-up authorization (X-Step-Up-Token) and human confirmation (X-Human-Confirmed: true) for clinical resources like Condition.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "resource_type": {
+            "type": "string",
+            "description": "FHIR resource type to fix (e.g. 'Condition')"
+          },
+          "resource_id": {
+            "type": "string",
+            "description": "ID of the resource to fix"
+          },
+          "fixes": {
+            "type": "array",
+            "description": "List of field fixes to apply. Each fix has 'field_path' (dot-notation, e.g. 'Condition.code.coding[0].system') and 'new_value' (the corrected value).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field_path": {
+                  "type": "string"
+                },
+                "new_value": {}
+              },
+              "required": [
+                "field_path",
+                "new_value"
+              ]
+            }
+          },
+          "patient_intent": {
+            "type": "string",
+            "description": "Plain-language reason for the fix, provided by the patient (recorded in Provenance)."
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id",
+          "fixes",
+          "patient_intent"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_get_token",
+      "description": "Get a fresh step-up authorization token for write operations. Call this before fhir_propose_write, fhir_commit_write, or curatr_apply_fix. Tokens expire after 5 minutes. Returns the token string \u2014 pass it as _stepUpToken in subsequent write tool calls.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant ID to scope the token to"
+          }
+        },
+        "required": [
+          "tenant_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "fhir_seed",
+      "description": "Seed a tenant with a realistic Patient + Observations + Condition bundle for live testing. Use this at the start of a demo session to populate data. Returns created resource IDs and a ready-to-use step_up_token.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "description": "Tenant to seed (default: desktop-demo)"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "action_propose",
+      "description": "Propose a real-world action (phone call or SMS) on the patient's behalf. Returns a draft (id + script) the patient MUST review before commit. Does not execute anything.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "phone-call",
+              "sms",
+              "insurance-call"
+            ],
+            "description": "Action type"
+          },
+          "payload": {
+            "type": "object",
+            "description": "Action content: { to: recipient label, phone: number to dial/text, body: call script or message text }"
+          }
+        },
+        "required": [
+          "kind",
+          "payload"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "action_commit",
+      "description": "Execute a previously proposed action AFTER the patient has explicitly approved the draft. Requires step-up authorization (call fhir_get_token first; pass as _stepUpToken). Only call this after the patient says yes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "description": "ID returned by action_propose"
+          }
+        },
+        "required": [
+          "action_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "action_status",
+      "description": "Check the status and outcome of an action (proposed/executing/completed/failed). Use after commit to report the result back to the patient.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "description": "ID returned by action_propose"
+          }
+        },
+        "required": [
+          "action_id"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "shl_generate",
+      "description": "Generate a SMART Health Link (shlink:/ QR payload) sharing the patient's record with a clinic. Fetches the guardrailed share-bundle from HealthClaw (step-up required \u2014 pass _stepUpToken), encrypts it client-side (the SHL server never sees plaintext), uploads ciphertext, and returns the shlink URI, viewer link, and the patient's private manage link. ALWAYS get the patient's explicit consent before generating, and deliver the manage link ONLY to the patient.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "Short label shown in SHL viewers (<=80 chars), e.g. 'Records for Winters Healthcare'. No PHI beyond what the patient approves."
+          },
+          "expires_in_days": {
+            "type": "number",
+            "description": "Link lifetime in days (default 7, max 90)"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "intake",
+              "deidentified"
+            ],
+            "description": "intake = identified record for clinic check-in (default); deidentified = strips name/contact/institutional IDs"
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "Optional patient id filter for multi-patient tenants"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    }
+  ]
+}
