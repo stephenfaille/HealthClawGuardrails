@@ -2919,3 +2919,11 @@ register_sdc_routes(r6_blueprint, {
     "validate_step_up_token": validate_step_up_token,
     "validator": validator,
 })
+
+# --- Quality measures ($evaluate-measure — NQF 0018) ---
+from r6.quality.routes import register_quality_routes  # noqa: E402
+
+register_quality_routes(r6_blueprint, {
+    "operation_outcome": _operation_outcome,
+    "authenticate_tenant_read": authenticate_tenant_read,
+})
