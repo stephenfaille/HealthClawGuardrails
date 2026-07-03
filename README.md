@@ -609,10 +609,12 @@ in-process cache when Redis is unavailable).
 - Local mode: JSON blob storage with table-scan search (no indexed fields)
 - Structural validation only (no StructureDefinition conformance or terminology binding)
 - SubscriptionTopic stored but notifications not dispatched
-- Human-in-the-loop is a header flag, not cryptographic confirmation
-- OAuth endpoints implemented but not enforced on routes (demonstration only)
+- Human-in-the-loop is a header flag (`X-Human-Confirmed`), not cryptographic confirmation — a compensating control for the demo, not proof a human acted
+- OAuth endpoints are for discovery/SMART advertisement; route enforcement is via step-up + read-auth tokens, and the auto-approve authorize flow is limited to public/demo tenants (no per-user consent screen)
 - No historical versioning (version_id increments but old versions not retrievable)
 - Upstream proxy: no response caching, no cross-version translation
+- **Security is config-dependent — production requires** `READ_AUTH_ENABLED=true` (authenticate non-public reads), `INTERNAL_TOKEN_MINT_SECRET` (gate token mint/seed for non-public tenants; fail-closed in prod when unset), `PUBLIC_TENANTS` limited to synthetic demo tenants, a real `SESSION_SECRET`/`STEP_UP_SECRET`, and https-only upstreams
+- Step-up tokens are valid for multiple writes within their 5-min TTL (not single-use); irreversible actions rely on state-machine idempotency (guarded `WHERE status='proposed'` claim) rather than nonce consumption
 
 ## Contributing — this is a community effort
 
