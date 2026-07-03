@@ -165,6 +165,10 @@ def seed_demo_data(tenant_id: str = 'desktop-demo', resources: list[dict] | None
             r = R6Resource(
                 resource_type=rtype,
                 resource_json=resource_str,
+                # Preserve the FHIR logical id as the PK so consumers can resolve
+                # the resource by it (e.g. GET /Questionnaire/healthclaw-intake).
+                # Resources without an `id` fall back to a generated UUID.
+                resource_id=resource.get('id'),
                 tenant_id=tenant_id,
             )
             db.session.add(r)
@@ -183,6 +187,10 @@ def seed_demo_data(tenant_id: str = 'desktop-demo', resources: list[dict] | None
             )
             created += 1
         except Exception as e:
+            # A fixed-id resource re-seeded onto an existing PK raises here.
+            # Roll back the failed insert so it can't poison the final commit;
+            # prior resources are already durable (record_audit_event commits).
+            db.session.rollback()
             logger.warning("Seed failed for %s: %s", rtype, e)
 
     db.session.commit()
