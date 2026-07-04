@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.aks129/healthclaw-guardrails",
+  "description": "Guardrailed FHIR access for AI agents: 24 tools behind PHI redaction, immutable audit, step-up auth, and tenant isolation. Works with any FHIR server (local store, HAPI, Medplum) and any framework (MCP native, OpenAI/Gemini adapters).",
+  "repository": {
+    "url": "https://github.com/aks129/HealthClawGuardrails",
+    "source": "github"
+  },
+  "version": "1.6.0",
+  "websiteUrl": "https://healthclaw.io",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp-server-production-5112.up.railway.app/mcp",
+      "headers": [
+        {
+          "description": "Tenant identifier — the public demo tenant 'desktop-demo' works without credentials",
+          "isRequired": false,
+          "name": "X-Tenant-Id"
+        },
+        {
+          "description": "Tenant-bound HMAC step-up token, required for write-tier tools and non-public tenant reads",
+          "isRequired": false,
+          "isSecret": true,
+          "name": "X-Step-Up-Token"
+        }
+      ]
+    }
+  ]
+}
