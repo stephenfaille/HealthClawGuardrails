@@ -12,7 +12,7 @@
 <br/>
 
 <!-- Project -->
-[![Release](https://img.shields.io/badge/release-v1.5.0-f97316?style=flat-square)](https://github.com/aks129/HealthClawGuardrails/releases)
+[![Release](https://img.shields.io/badge/release-v1.6.0-f97316?style=flat-square)](https://github.com/aks129/HealthClawGuardrails/releases)
 [![License](https://img.shields.io/badge/license-MIT-2dd4bf?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/aks129/HealthClawGuardrails/ci.yml?branch=main&style=flat-square&label=CI&logo=github)](https://github.com/aks129/HealthClawGuardrails/actions/workflows/ci.yml)
 [![Code size](https://img.shields.io/github/languages/code-size/aks129/HealthClawGuardrails?style=flat-square&color=0ea5e9)](https://github.com/aks129/HealthClawGuardrails)
@@ -26,14 +26,14 @@
 
 <!-- Stack & scope -->
 [![Tests](https://img.shields.io/badge/tests-840%2B%20Python%20%2B%2076%20Node-22c55e?style=flat-square)](#testing)
-[![MCP tools](https://img.shields.io/badge/MCP%20tools-24-6366f1?style=flat-square&logo=anthropic)](#mcp-tools)
+[![MCP tools](https://img.shields.io/badge/MCP%20tools-24-6366f1?style=flat-square&logo=anthropic)](#mcp-tools-24)
 [![FHIR](https://img.shields.io/badge/FHIR-R4%20US%20Core%20v9-0ea5e9?style=flat-square)](#fhir-version-support)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)](pyproject.toml)
 [![Docker](https://img.shields.io/badge/docker-compose-2496ED?style=flat-square&logo=docker&logoColor=white)](#docker)
 
 <br/>
 
-**[Quick Start](#quick-start)** · **[MCP Tools](#mcp-tools)** · **[Recipes](docs/recipes/)** · **[Claude Plugin](#install-as-a-claude-plugin)** · **[Architecture](#what-it-does)** · **[healthclaw.io](https://healthclaw.io)** · **[Contributing](CONTRIBUTING.md)**
+**[Quick Start](#quick-start)** · **[MCP Tools](#mcp-tools-24)** · **[Recipes](docs/recipes/)** · **[Claude Plugin](#install-as-a-claude-plugin)** · **[Architecture](#what-it-does)** · **[healthclaw.io](https://healthclaw.io)** · **[Contributing](CONTRIBUTING.md)**
 
 </div>
 
@@ -46,7 +46,7 @@
 
 **This is a community effort.** It's most useful when implementers, clinicians, and standards folks poke holes in it. Issues, PRs, and "you got the SDC extraction wrong" critiques are all welcome — start with **[CONTRIBUTING.md](CONTRIBUTING.md)** and the **[Code of Conduct](CODE_OF_CONDUCT.md)**.
 
-**At a glance:** v1.5.0 · 840+ Python + 76 Node tests · 24 MCP tools · FHIR R4 US Core v9 + R6 v6.0.0-ballot3 · HL7 SDC forms (`$populate`/`$extract`) · NQF 0018 quality measure · lab interpreter (`$interpret`) · Fasten TEFCA · HealthEx · HBO · Flexpa · Epic · MEDENT · Open Wearables · real-world actions (calls/SMS) · SMART Health Links · Claude Code plugin · OpenAI/Gemini adapters
+**At a glance:** v1.6.0 · 840+ Python + 76 Node tests · 24 MCP tools · FHIR R4 US Core v9 + R6 v6.0.0-ballot3 · HL7 SDC forms (`$populate`/`$extract`) · NQF 0018 quality measure · lab interpreter (`$interpret`) · Fasten TEFCA · HealthEx · HBO · Flexpa · Epic · MEDENT · Open Wearables · real-world actions (calls/SMS) · SMART Health Links · Claude Code plugin · OpenAI/Gemini adapters
 
 ## Release highlights
 
@@ -54,16 +54,11 @@ Full notes live in **[Releases](https://github.com/aks129/HealthClawGuardrails/r
 
 | Version | Highlights |
 | --- | --- |
-| **v1.5.0** | Read-auth hardening (tenant reads authenticated, not just scoped) · HL7 SDC forms — `$populate` / `$extract` |
+| **v1.6.0** | Lab reference-range interpreter (`Observation/$interpret`) · NQF 0018 quality measure (`Measure/$evaluate-measure`) · [any-agent-framework adapters](docs/recipes/any-agent-framework.md) (OpenAI/Gemini) · [Medplum-in-front recipe](docs/recipes/healthclaw-in-front-of-medplum.md) · SMBP triage on 2025 AHA/ACC · ruff lint gate · all dependency advisories remediated |
+| v1.5.0 | Read-auth hardening (tenant reads authenticated, not just scoped) · HL7 SDC forms — `$populate` / `$extract` |
 | v1.4.0 | Six health-data connectors (Fasten TEFCA, HealthEx, Health Bank One, Flexpa, Epic, MEDENT) behind one guardrail stack |
 | v1.3.0 | Wearables → FHIR Observations (8 providers, LOINC/UCUM mapping, device Provenance) |
 | v1.2.0 | Compiled Truth — current state + append-only Provenance trail per resource |
-
-**Since v1.5.0 on `main`:** NQF 0018 quality measure (`Measure/$evaluate-measure`) · lab reference-range
-interpreter (`Observation/$interpret`, decision support with consumer summaries) · the
-**[any-agent-framework adapter kit](docs/recipes/any-agent-framework.md)** (same 24 guardrailed tools on
-OpenAI / Gemini / LangChain) · the **[HealthClaw-in-front-of-Medplum recipe](docs/recipes/healthclaw-in-front-of-medplum.md)** ·
-ruff lint gate · all Dependabot advisories remediated.
 
 ## What It Does
 
