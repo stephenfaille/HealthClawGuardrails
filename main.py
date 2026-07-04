@@ -88,10 +88,7 @@ if os.environ.get('FLASK_ENV') == 'production' and not os.environ.get('STEP_UP_S
 db.init_app(app)
 
 with app.app_context():
-    from r6.models import R6Resource, ContextEnvelope, ContextItem, AuditEventRecord
-    from r6.fasten.models import FastenConnection, FastenJob
-    from r6.wearables.models import WearableConnection
-    from r6.command_center.models import ConversationMessage, AgentTask
+    from r6.models import R6Resource
     import r6.actions.models  # noqa: F401 — registers ProposedAction table
     import r6.smbp.models  # noqa: F401 — registers SMBPSession table
     from sqlalchemy.exc import OperationalError, IntegrityError, ProgrammingError

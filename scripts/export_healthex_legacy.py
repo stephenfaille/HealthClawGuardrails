@@ -643,9 +643,9 @@ class CuratrPreTagger:
                 key=lambda o: o.get("effectiveDateTime", "0000"),
             )
             oldest = dated[0]
-            newest = dated[-1]
+            dated[-1]
             for o in smoking_obs:
-                o_date = o.get("effectiveDateTime", "")
+                o.get("effectiveDateTime", "")
                 other_dates = [x.get("effectiveDateTime") for x in smoking_obs if x["id"] != o["id"]]
                 # Pulled out of the f-string because Python 3.11 (CI) rejects
                 # backslash escapes inside f-string expressions; PEP 701 only
@@ -1014,7 +1014,7 @@ def main():
         # Medications (optional \u2014 may return empty)
         logger.info("Pulling medications (up to %d years)...", args.years)
         try:
-            med_pages = client.get_medications(args.years)
+            client.get_medications(args.years)
             logger.info("  \u2192 medication data available (mapper not yet implemented, skipping)")
         except Exception as e:
             logger.debug("Medications pull failed (likely no data): %s", e)
@@ -1022,7 +1022,7 @@ def main():
         # Procedures (optional)
         logger.info("Pulling procedures (up to %d years)...", args.years)
         try:
-            proc_pages = client.get_procedures(args.years)
+            client.get_procedures(args.years)
             logger.info("  \u2192 procedure data available (mapper not yet implemented, skipping)")
         except Exception as e:
             logger.debug("Procedures pull failed (likely no data): %s", e)

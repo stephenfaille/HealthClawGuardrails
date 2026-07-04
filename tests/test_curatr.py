@@ -11,15 +11,12 @@ Covers:
 
 import json
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from r6.curatr import (
     CuratrEngine,
-    CuratrIssue,
     CuratrResult,
-    apply_fix,
     _apply_field_fix,
-    DEPRECATED_SYSTEMS,
 )
 
 

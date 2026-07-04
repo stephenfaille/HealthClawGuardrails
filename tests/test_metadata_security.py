@@ -15,7 +15,6 @@ Reconciliation tests for the security disclosure work:
 
 from pathlib import Path
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

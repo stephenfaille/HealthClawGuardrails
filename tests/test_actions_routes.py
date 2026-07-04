@@ -203,7 +203,8 @@ def test_commit_4xx_provider_error_is_failed(client, tenant_headers,
     action_id = _propose(client, tenant_headers)
     headers = dict(auth_headers)
     headers['X-Human-Confirmed'] = 'true'
-    fake = MagicMock(); fake.status_code = 400
+    fake = MagicMock()
+    fake.status_code = 400
     with mock_patch('r6.actions.executors.requests.post', return_value=fake):
         resp = client.post('/r6/actions/%s/commit' % action_id, headers=headers)
     assert resp.status_code == 502
@@ -225,7 +226,8 @@ def test_commit_5xx_provider_error_is_unknown(client, tenant_headers,
     action_id = _propose(client, tenant_headers)
     headers = dict(auth_headers)
     headers['X-Human-Confirmed'] = 'true'
-    fake = MagicMock(); fake.status_code = 503
+    fake = MagicMock()
+    fake.status_code = 503
     with mock_patch('r6.actions.executors.requests.post', return_value=fake):
         resp = client.post('/r6/actions/%s/commit' % action_id, headers=headers)
     assert resp.status_code == 502

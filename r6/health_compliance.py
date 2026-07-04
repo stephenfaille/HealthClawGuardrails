@@ -11,8 +11,6 @@ Implements OpenAI Health App and marketplace requirements:
 import hashlib
 import json
 import logging
-import re
-import uuid
 from datetime import datetime, timezone
 from flask import request, jsonify
 

@@ -5,7 +5,6 @@ Read-shaped: tenant-read-authenticated + AuditEvent. Computes the measure from
 the tenant's stored Patient / Condition / Observation resources.
 """
 
-import json
 import logging
 
 from flask import request, jsonify

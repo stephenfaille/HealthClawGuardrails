@@ -50,7 +50,6 @@ import os
 import subprocess
 import sys
 import uuid
-from collections import defaultdict
 from datetime import date
 
 import requests

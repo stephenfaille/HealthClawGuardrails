@@ -12,7 +12,6 @@ identifier, stamps meta.tag.
 """
 
 import json
-import pytest
 
 from models import db
 from r6.models import R6Resource, AuditEventRecord

@@ -14,7 +14,6 @@ OAuth provider (Auth0, Keycloak) via OAUTH_ISSUER configuration.
 
 import base64
 import hashlib
-import json
 import logging
 import os
 import secrets

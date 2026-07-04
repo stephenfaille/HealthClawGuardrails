@@ -28,7 +28,6 @@ Usage:
 import argparse
 import json
 import os
-import sys
 
 
 def parse_args():
@@ -95,7 +94,7 @@ def load_fasten_export(path: str, allowed_types: set | None) -> dict[tuple, dict
         return resources
 
     for provider in providers:
-        pname = provider.get('name', 'unknown')
+        provider.get('name', 'unknown')
         fhir = provider.get('fhir', {})
         for resource_type, resource_list in fhir.items():
             if allowed_types is not None and resource_type not in allowed_types:

@@ -11,7 +11,6 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -20,7 +19,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from healthclaw_redact import redact, RedactionStats  # noqa: E402
+from healthclaw_redact import redact  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

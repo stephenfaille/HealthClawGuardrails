@@ -3,7 +3,6 @@ Tests for R6 FHIR REST endpoints.
 """
 
 import json
-import pytest
 
 
 class TestR6Metadata:
@@ -536,7 +535,9 @@ class TestOAuthFlow:
 
     def test_authorize_rejects_unregistered_redirect_uri(self, client, tenant_headers):
         """Authorization should reject redirect URIs not registered for the client."""
-        import hashlib, base64, secrets
+        import hashlib
+        import base64
+        import secrets
 
         reg_resp = client.post('/r6/fhir/oauth/register',
                               data=json.dumps({
@@ -563,7 +564,9 @@ class TestOAuthFlow:
         assert 'redirect_uri' in data.get('error_description', '')
 
     def test_authorize_rejects_unregistered_client(self, client, tenant_headers):
-        import hashlib, base64, secrets
+        import hashlib
+        import base64
+        import secrets
 
         code_verifier = secrets.token_urlsafe(32)
         code_challenge = base64.urlsafe_b64encode(
@@ -579,7 +582,9 @@ class TestOAuthFlow:
         assert resp.status_code == 401
 
     def test_full_oauth_flow(self, client, tenant_headers):
-        import hashlib, base64, secrets
+        import hashlib
+        import base64
+        import secrets
 
         reg_resp = client.post('/r6/fhir/oauth/register',
                               data=json.dumps({
@@ -624,7 +629,9 @@ class TestOAuthFlow:
         assert token_data['scope'] == 'fhir.read'
 
     def test_token_revocation(self, client, tenant_headers):
-        import hashlib, base64, secrets
+        import hashlib
+        import base64
+        import secrets
 
         reg_resp = client.post('/r6/fhir/oauth/register',
                               data=json.dumps({
@@ -1075,7 +1082,7 @@ class TestEnhancedSearch:
         assert resp.status_code == 200
         data = resp.get_json()
         assert 'link' in data
-        self_link = next(l for l in data['link'] if l['relation'] == 'self')
+        self_link = next(lk for lk in data['link'] if lk['relation'] == 'self')
         assert '_count=5' in self_link['url']
 
     def test_search_invalid_lastUpdated(self, client, tenant_headers):

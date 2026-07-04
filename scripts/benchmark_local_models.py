@@ -22,7 +22,6 @@ Output: JSON results to stdout (one summary object), human table to stderr.
 import argparse
 import json
 import os
-import re
 import sys
 import time
 import urllib.request

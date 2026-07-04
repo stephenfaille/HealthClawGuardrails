@@ -14,7 +14,6 @@ import json
 import os
 import sys
 import importlib
-import types
 from unittest.mock import MagicMock, patch
 
 import pytest

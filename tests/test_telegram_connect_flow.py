@@ -8,7 +8,6 @@ Tests for the Telegram ↔ Fasten connect flow:
 
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from r6.models import TelegramBinding
 

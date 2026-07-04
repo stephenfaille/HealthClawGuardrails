@@ -6,7 +6,6 @@ with retention, redaction, and caching support.
 """
 
 import json
-import hashlib
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone

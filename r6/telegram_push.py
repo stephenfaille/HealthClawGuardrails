@@ -15,7 +15,6 @@ run a command (e.g. "type /summary").
 
 import logging
 import os
-from typing import Iterable
 
 import requests
 

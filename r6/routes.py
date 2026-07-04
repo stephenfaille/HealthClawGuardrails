@@ -45,7 +45,6 @@ from r6.fhir_proxy import (
     is_sharp_context_active,
     close_request_proxy,
     SHARP_SERVER_URL_HEADER,
-    SHARP_PATIENT_ID_HEADER,
 )
 from r6.curatr import (
     CuratrEngine,
@@ -677,7 +676,6 @@ def update_resource(resource_type, resource_id):
     # ETag/If-Match concurrency control
     if_match = request.headers.get('If-Match')
     if if_match:
-        current_etag = f'W/"{resource.version_id}"'
         # Normalize: strip W/ prefix and quotes for comparison
         expected = if_match.strip().lstrip('W/').strip('"')
         actual = str(resource.version_id)
@@ -1376,7 +1374,7 @@ def evaluate_permission():
 
     subject_ref = body.get('subject')
     action = body.get('action', 'read')
-    resource_ref = body.get('resource')
+    body.get('resource')
 
     # Query active Permission resources for this tenant
     permissions = R6Resource.query.filter_by(
@@ -1862,7 +1860,7 @@ def demo_agent_loop():
         'telecom': [{'system': 'phone', 'value': '617-555-0198', 'use': 'mobile'}],
     }
 
-    token = generate_step_up_token(tenant_id)
+    generate_step_up_token(tenant_id)
     resource_json = json.dumps(patient, separators=(',', ':'), sort_keys=True)
     pt_resource = R6Resource(
         resource_type='Patient',
@@ -1938,21 +1936,21 @@ def demo_agent_loop():
         p.is_deleted = True
     db.session.commit()
 
-    eval_request = {
+    {
         'subject': 'Agent/demo-agent',
         'action': 'create',
         'resource': f'Observation/{med_request["id"]}',
     }
 
     # Evaluate with no permissions — should deny
-    permissions = R6Resource.query.filter_by(
+    R6Resource.query.filter_by(
         resource_type='Permission', is_deleted=False, tenant_id=tenant_id
     ).all()
 
     deny_reasoning = 'No active Permission resources found for this tenant. Default deny applies.'
     record_audit_event('read', 'Permission', None,
                        agent_id='demo-agent', tenant_id=tenant_id,
-                       detail=f'Agent demo: $evaluate — subject=Agent/demo-agent, action=create, decision=deny')
+                       detail='Agent demo: $evaluate — subject=Agent/demo-agent, action=create, decision=deny')
 
     steps.append({
         'step': 3,
@@ -2010,7 +2008,7 @@ def demo_agent_loop():
                         f'combining=permit-overrides). Final decision: permit.')
     record_audit_event('read', 'Permission', None,
                        agent_id='demo-agent', tenant_id=tenant_id,
-                       detail=f'Agent demo: $evaluate — action=create, decision=permit')
+                       detail='Agent demo: $evaluate — action=create, decision=permit')
 
     steps.append({
         'step': 4,
@@ -2045,7 +2043,7 @@ def demo_agent_loop():
                        agent_id='demo-agent', tenant_id=tenant_id,
                        detail='Agent demo: step-up token issued, human confirmation required')
 
-    step_up_token = generate_step_up_token(tenant_id, agent_id='demo-agent')
+    generate_step_up_token(tenant_id, agent_id='demo-agent')
 
     steps.append({
         'step': 5,

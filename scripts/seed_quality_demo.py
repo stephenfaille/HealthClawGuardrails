@@ -64,7 +64,7 @@ def build_quality_cohort():
                        "conditions": conditions, "observation": observation,
                        "excluded": excl is not None})
     denom = sum(1 for g in groups if not g["excluded"])
-    numer = sum(1 for (l, d, s, di, e) in _PANEL
+    numer = sum(1 for (_lbl, _dob, s, di, e) in _PANEL
                 if e is None and s < 140 and di < 90)
     return {"groups": groups, "denominator": denom, "numerator": numer,
             "exclusions": sum(1 for g in groups if g["excluded"])}

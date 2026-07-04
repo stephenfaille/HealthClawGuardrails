@@ -20,7 +20,6 @@ import hashlib
 import base64
 import json
 import secrets
-import pytest
 
 
 # ===== Health Check =====

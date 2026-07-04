@@ -10,17 +10,12 @@ Coverage:
 """
 
 import json
-import time
-from datetime import datetime, timezone, timedelta
-from unittest.mock import patch
 
-import httpx
-import pytest
 
 from models import db
 from r6.models import R6Resource, AuditEventRecord
 from r6.command_center import agents, projector, gateway
-from r6.command_center.models import ConversationMessage, AgentTask
+from r6.command_center.models import ConversationMessage
 
 TENANT = "test-tenant"
 

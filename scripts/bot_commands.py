@@ -285,17 +285,17 @@ def cmd_connect(args) -> int:
     fasten_url = f"{base}/connect/{tenant}"
 
     print("Connect your health records — available sources:\n")
-    print(f"  1. Fasten TEFCA (hospitals, labs, EHRs — nationwide)")
+    print("  1. Fasten TEFCA (hospitals, labs, EHRs — nationwide)")
     print(f"     {fasten_url}")
-    print(f"     Verify once with CLEAR / ID.me — records stream from all QHINs.\n")
-    print(f"  2. Health Bank One (verified records + insurance)")
-    print(f"     Run: /hbo-connect\n")
-    print(f"  3. MEDENT (small-practice EHR, SMART on FHIR)")
-    print(f"     Run: /medent-connect\n")
-    print(f"  4. Epic / patient portals (Health Skillz, SMART on FHIR)")
-    print(f"     Run: /epic-connect\n")
-    print(f"  5. Flexpa (200+ payers/insurers, CMS-9115 — needs Flexpa account)")
-    print(f"     Run: /flexpa-connect\n")
+    print("     Verify once with CLEAR / ID.me — records stream from all QHINs.\n")
+    print("  2. Health Bank One (verified records + insurance)")
+    print("     Run: /hbo-connect\n")
+    print("  3. MEDENT (small-practice EHR, SMART on FHIR)")
+    print("     Run: /medent-connect\n")
+    print("  4. Epic / patient portals (Health Skillz, SMART on FHIR)")
+    print("     Run: /epic-connect\n")
+    print("  5. Flexpa (200+ payers/insurers, CMS-9115 — needs Flexpa account)")
+    print("     Run: /flexpa-connect\n")
     print("All sources feed into the same tenant — records are deduplicated.")
     return 0
 
@@ -306,7 +306,7 @@ def cmd_token(args) -> int:
     token = mint_step_up_token(tenant, args.agent or "bot")
     print(token)
     print(f"tenant: {tenant}")
-    print(f"ttl: 300s")
+    print("ttl: 300s")
     return 0
 
 
@@ -958,7 +958,7 @@ def cmd_hbo_pull(args) -> int:
     import subprocess
     tenant = args.tenant or _tenant_default()
 
-    mcp_url = os.environ.get(
+    os.environ.get(
         "HBO_MCP_URL", "https://mcp.app.healthbankone.com/mcp").strip()
 
     script = Path(__file__).parent / "export_healthbankone_mcp.py"

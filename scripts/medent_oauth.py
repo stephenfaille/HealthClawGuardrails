@@ -323,7 +323,7 @@ def cmd_authorize(args: argparse.Namespace) -> int:
     print(f"  {auth_url}")
     print()
     print("Log in with your MEDENT patient portal credentials when the page opens.")
-    print(f"After login, the browser redirects to HealthClaw — this terminal polls for the code.")
+    print("After login, the browser redirects to HealthClaw — this terminal polls for the code.")
     print(f"(timeout: {_CALLBACK_TIMEOUT}s)\n")
 
     if not args.no_browser:

@@ -3,7 +3,6 @@ Tests for the Context Builder service.
 """
 
 import json
-import pytest
 
 
 class TestContextBuilder:
@@ -15,7 +14,7 @@ class TestContextBuilder:
                           data=json.dumps(sample_bundle),
                           content_type='application/json',
                           headers=tenant_headers)
-        context_id = resp.get_json()['context_id']
+        resp.get_json()['context_id']
 
         # Read the stored patient (same tenant)
         patient_resp = client.get('/r6/fhir/Patient/test-patient-1',

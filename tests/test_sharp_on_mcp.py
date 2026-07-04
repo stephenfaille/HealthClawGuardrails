@@ -6,12 +6,10 @@ via X-FHIR-Server-URL / X-FHIR-Access-Token / X-Patient-ID headers.
 """
 
 import hashlib
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 
 from r6.fhir_proxy import (
-    FHIRUpstreamProxy,
     make_sharp_proxy,
     get_proxy_for_request,
     is_sharp_context_active,

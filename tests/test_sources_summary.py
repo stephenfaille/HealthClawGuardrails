@@ -12,7 +12,6 @@ conftest via PUBLIC_TENANTS), so a bare ?tenant=test-tenant is accepted.
 
 from datetime import datetime, timezone
 
-import pytest
 
 from models import db
 from r6.models import R6Resource, AuditEventRecord

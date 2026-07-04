@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
-import tempfile
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
-import pytest
 
 # Add scripts/ to path so we can import directly
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -91,7 +88,6 @@ class TestTryRefresh:
         cache_path = tmp_path / "tokens.json"
         monkeypatch.setenv("HBO_TOKEN_CACHE", str(cache_path))
 
-        import httpx
         mock_resp = MagicMock()
         mock_resp.raise_for_status.return_value = None
         mock_resp.json.return_value = {
@@ -204,7 +200,6 @@ class TestUnwrap:
 class TestApplyRedaction:
     def test_none_mode_passthrough(self):
         payload = {"resourceType": "Patient", "name": [{"family": "Smith"}]}
-        from healthclaw_redact import RedactionStats
         out, stats = _apply_redaction(payload, "none", "t1", "http://x")
         assert out["name"][0]["family"] == "Smith"
 

@@ -22,7 +22,6 @@ import pytest
 # ─────────────────────────────────────────────
 
 from r6.wearables.mapper import (
-    METRIC_MAP,
     sample_to_observation,
     samples_to_bundle,
 )

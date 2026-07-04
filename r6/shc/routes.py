@@ -35,7 +35,6 @@ Environment variables:
 """
 
 import hmac
-import json
 import logging
 import os
 import threading
@@ -44,7 +43,6 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, request, jsonify, current_app
 
-from models import db
 from r6.audit import record_audit_event
 
 logger = logging.getLogger(__name__)

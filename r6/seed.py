@@ -12,7 +12,7 @@ import logging
 from datetime import datetime, timezone
 
 from models import db
-from r6.models import R6Resource, AuditEventRecord
+from r6.models import R6Resource
 from r6.audit import record_audit_event
 
 logger = logging.getLogger(__name__)
