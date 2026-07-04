@@ -71,3 +71,85 @@ LOINC_RANGES = {
     "4548-4":  {"name": "Hemoglobin A1c", "unit": "%", "high": 5.7,
                 "source": "ata-lipid"},
 }
+
+
+LOINC_SYSTEM = "http://loinc.org"
+
+
+def _loinc(obs):
+    for c in obs.get("code", {}).get("coding", []):
+        if c.get("system") == LOINC_SYSTEM and c.get("code"):
+            return c["code"]
+    return None
+
+
+def _apply_sex(entry, patient):
+    low, high = entry.get("low"), entry.get("high")
+    gender = (patient or {}).get("gender")
+    override = entry.get("sex", {}).get(gender) if gender else None
+    if override:
+        low = override.get("low", low)
+        high = override.get("high", high)
+    return low, high
+
+
+def _resource_range(obs):
+    for rr in obs.get("referenceRange", []):
+        low = rr.get("low", {}).get("value")
+        high = rr.get("high", {}).get("value")
+        if low is not None or high is not None:
+            return low, high
+    return None
+
+
+def _flag(value, low, high, crit_low, crit_high):
+    if crit_low is not None and value < crit_low:
+        return "LL"
+    if low is not None and value < low:
+        return "L"
+    if crit_high is not None and value > crit_high:
+        return "HH"
+    if high is not None and value > high:
+        return "H"
+    return "N"
+
+
+def _indeterminate(analyte, loinc, value, unit, reason):
+    return {"analyte": analyte, "loinc": loinc, "value": value, "unit": unit,
+            "range_source": "none", "low": None, "high": None,
+            "flag": None, "critical": False, "note": f"indeterminate: {reason}"}
+
+
+def interpret_observation(obs, patient=None):
+    """Interpret one Observation. Resource range wins; table is fallback."""
+    loinc = _loinc(obs)
+    entry = LOINC_RANGES.get(loinc)
+    analyte = entry["name"] if entry else None
+    vq = obs.get("valueQuantity") or {}
+    value, unit = vq.get("value"), vq.get("unit")
+
+    if value is None:
+        return _indeterminate(analyte, loinc, value, unit, "no numeric value")
+    if loinc is None or entry is None:
+        return _indeterminate(analyte, loinc, value, unit, "unknown analyte")
+
+    crit_low, crit_high = entry.get("crit_low"), entry.get("crit_high")
+
+    resource_rng = _resource_range(obs)
+    if resource_rng is not None:
+        low, high = resource_rng
+        source, note = "resource", "used the performing lab's reference range"
+    else:
+        if unit and unit != entry["unit"]:
+            return _indeterminate(analyte, loinc, value, unit,
+                                  f"unit {unit!r} != expected {entry['unit']!r}")
+        low, high = _apply_sex(entry, patient)
+        source = "table"
+        note = "adult default range" + (
+            "" if (patient or {}).get("gender") or not entry.get("sex")
+            else "; sex unknown — used non-specific range")
+
+    flag = _flag(value, low, high, crit_low, crit_high)
+    return {"analyte": analyte, "loinc": loinc, "value": value, "unit": unit,
+            "range_source": source, "low": low, "high": high,
+            "flag": flag, "critical": flag in ("LL", "HH"), "note": note}
