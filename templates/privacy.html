@@ -24,7 +24,7 @@
       <h1 class="h3 mb-1">Privacy Policy</h1>
       <p class="legal-meta">
         <strong>HealthClaw Guardrails</strong> &middot; healthclaw.io &middot;
-        Effective: March 29, 2026 &middot; Last updated: March 29, 2026
+        Effective: March 29, 2026 &middot; Last updated: July 4, 2026
       </p>
     </div>
 
@@ -76,6 +76,20 @@
       <p>
         API calls made against the public demo endpoint at <code>/r6/fhir/*</code> are ephemeral and stored
         transiently in the demo database. Do not submit real patient data to the public demo.
+      </p>
+
+      <h3>Connected AI Assistants (Claude, ChatGPT, and other MCP clients)</h3>
+      <p>When you connect a health data source through the hosted HealthClaw connector, we process:</p>
+      <ul>
+        <li><strong>Identity and demographic data</strong> — name, birth date, contact details (redacted before any AI model sees them)</li>
+        <li><strong>Clinical data</strong> — conditions, medications, lab results, vital signs, immunizations, and documents</li>
+        <li><strong>Coverage data</strong> and <strong>device/wearable observations</strong></li>
+        <li><strong>Operational data</strong> — tenant identifiers, OAuth tokens, and access logs recording who accessed what and when (access logs never contain clinical values)</li>
+      </ul>
+      <p>
+        Every read passes through PHI redaction before reaching an AI model; every write requires step-up
+        authorization and explicit human confirmation. In pass-through proxy mode we store nothing — data flows
+        from your own FHIR server through the guardrails and is not retained.
       </p>
 
       <h2 id="how-we-use">2. How We Use Information</h2>
@@ -172,10 +186,22 @@
         collected and are not shared with any third party.
       </p>
 
-      <h2 id="your-rights">8. Your Rights</h2>
+      <h2 id="your-rights">8. Your Rights and Controls</h2>
+      <p>If you use the hosted connector (via Claude, ChatGPT, or another MCP client), you can:</p>
+      <ul>
+        <li><strong>Disconnect</strong> any data source at any time</li>
+        <li><strong>Export</strong> your data as standard FHIR at any time</li>
+        <li><strong>Request deletion</strong> of your tenant and all stored records — deletion completes within
+            30 days and is confirmed to you</li>
+        <li><strong>Review the audit trail</strong> of every access to your records</li>
+      </ul>
+      <p>
+        We never sell your data, never use it for advertising, and never use it to train AI models.
+      </p>
       <p>
         If you have submitted data through the public demo and wish to request deletion, contact us at
-        <a href="mailto:privacy@healthclaw.io">privacy@healthclaw.io</a>. We will respond within 30 days.
+        <a href="mailto:privacy@healthclaw.io">privacy@healthclaw.io</a> or
+        <a href="mailto:support@healthclaw.io">support@healthclaw.io</a>. We will respond within 30 days.
       </p>
       <p>
         For self-hosted deployments, all rights (access, deletion, portability) are exercised directly against
