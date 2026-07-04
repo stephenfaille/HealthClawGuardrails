@@ -23,6 +23,9 @@ Copy this into the release PR/issue and check items off.
 - [ ] `services/agent-orchestrator/package.json` → `version` (then `npm install --package-lock-only`)
 - [ ] README: release badge, "At a glance" line, Release-highlights table (new row on top)
 - [ ] MCP tool count still accurate everywhere (badge, at-a-glance, `## MCP Tools (N)`, adapters manifest `tool_count`)
+- [ ] **healthclaw.io templates** (`templates/index.html` stats + copy, `base.html` nav badge,
+      `wiki.html`) — `tests/test_site_version_sync.py` fails the suite if these drift, so a
+      green suite means the site content is in sync; Vercel redeploys it on push
 
 ### 3. Tag + GitHub release
 
