@@ -21,7 +21,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Get Health Context"
     },
     {
       "name": "fhir_read",
@@ -84,7 +85,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Read FHIR Resource"
     },
     {
       "name": "fhir_search",
@@ -167,7 +169,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Search FHIR Resources"
     },
     {
       "name": "fhir_validate",
@@ -188,7 +191,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Validate FHIR Resource"
     },
     {
       "name": "questionnaire_populate",
@@ -217,7 +221,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Pre-fill Health Form"
     },
     {
       "name": "questionnaire_extract",
@@ -247,7 +252,8 @@
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
-      }
+      },
+      "title": "Extract Form Data to FHIR"
     },
     {
       "name": "fhir_propose_write",
@@ -277,7 +283,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Propose FHIR Write"
     },
     {
       "name": "fhir_commit_write",
@@ -306,7 +313,8 @@
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
-      }
+      },
+      "title": "Commit FHIR Write"
     },
     {
       "name": "fhir_stats",
@@ -329,7 +337,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Observation Statistics"
     },
     {
       "name": "fhir_lastn",
@@ -357,7 +366,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Latest Observations"
     },
     {
       "name": "fhir_permission_evaluate",
@@ -391,7 +401,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Evaluate Access Permission"
     },
     {
       "name": "fhir_subscription_topics",
@@ -405,7 +416,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "List Subscription Topics"
     },
     {
       "name": "wearables_sync_status",
@@ -424,7 +436,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Wearables Sync Status"
     },
     {
       "name": "sources_check",
@@ -438,7 +451,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Check Data Sources"
     },
     {
       "name": "fhir_compiled_truth",
@@ -464,7 +478,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Compiled Truth Timeline"
     },
     {
       "name": "curatr_evaluate",
@@ -490,7 +505,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": true
-      }
+      },
+      "title": "Evaluate Data Quality"
     },
     {
       "name": "curatr_apply_fix",
@@ -539,7 +555,8 @@
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Apply Data Quality Fix"
     },
     {
       "name": "fhir_get_token",
@@ -560,7 +577,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Mint Step-Up Token"
     },
     {
       "name": "fhir_seed",
@@ -579,7 +597,8 @@
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Seed Demo Data"
     },
     {
       "name": "action_propose",
@@ -610,7 +629,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": true
-      }
+      },
+      "title": "Propose Real-World Action"
     },
     {
       "name": "action_commit",
@@ -631,7 +651,8 @@
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": true
-      }
+      },
+      "title": "Commit Real-World Action"
     },
     {
       "name": "action_status",
@@ -652,7 +673,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Action Status"
     },
     {
       "name": "shl_generate",
@@ -687,11 +709,12 @@
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": true
-      }
+      },
+      "title": "Generate SMART Health Link"
     },
     {
       "name": "fhir_interpret_labs",
-      "description": "Interpret lab Observations against reference ranges — flags each value low/normal/high/critical (HL7 v3 ObservationInterpretation) and returns clinician + consumer summaries. Decision support, not diagnosis. Read-tier.",
+      "description": "Interpret lab Observations against reference ranges \u2014 flags each value low/normal/high/critical (HL7 v3 ObservationInterpretation) and returns clinician + consumer summaries. Decision support, not diagnosis. Read-tier.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -705,7 +728,7 @@
           },
           "subject": {
             "type": "string",
-            "description": "Patient reference (e.g. 'Patient/pt-1') — interpret the tenant's stored Observations for this subject"
+            "description": "Patient reference (e.g. 'Patient/pt-1') \u2014 interpret the tenant's stored Observations for this subject"
           }
         },
         "required": []
@@ -714,7 +737,8 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
-      }
+      },
+      "title": "Interpret Lab Results"
     }
   ]
 }

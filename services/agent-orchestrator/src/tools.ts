@@ -36,6 +36,7 @@ interface ToolAnnotations {
 
 interface ToolDefinition {
   name: string;
+  title: string;
   description: string;
   tier: ToolTier;
   annotations: ToolAnnotations;
@@ -45,6 +46,7 @@ interface ToolDefinition {
 // MCP SDK tool schema format (includes annotations)
 export interface MCPToolSchema {
   name: string;
+  title?: string;
   description: string;
   inputSchema: Record<string, unknown>;
   annotations: ToolAnnotations;
@@ -133,6 +135,7 @@ export class FHIRTools {
   getMCPToolSchemas(): MCPToolSchema[] {
     return this.getToolSchemas().map((t) => ({
       name: t.name,
+      title: t.title,
       description: t.description,
       inputSchema: t.inputSchema,
       annotations: t.annotations,
@@ -143,6 +146,7 @@ export class FHIRTools {
     return [
       {
         name: "context_get",
+        title: "Get Health Context",
         description:
           "Retrieve a pre-built context envelope with patient-centric FHIR resources. Returns bounded, policy-stamped, time-limited context.",
         tier: "read",
@@ -157,6 +161,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_read",
+        title: "Read FHIR Resource",
         description: "Read a specific FHIR resource by type and ID. Supports FHIR R4 US Core v9 stable resources and FHIR R6 ballot3 experimental resources. Returns redacted resource with PHI protection.",
         tier: "read",
         annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
@@ -211,6 +216,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_search",
+        title: "Search FHIR Resources",
         description:
           "Search for FHIR resources. Supports FHIR R4 US Core v9 stable resources and FHIR R6 ballot3 experimental resources. Supports patient, code, status, _lastUpdated, _count, _sort parameters. Returns paginated, redacted Bundle.",
         tier: "read",
@@ -290,6 +296,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_validate",
+        title: "Validate FHIR Resource",
         description:
           "Validate a proposed FHIR R6 resource against structural rules. Returns OperationOutcome.",
         tier: "read",
@@ -307,6 +314,7 @@ export class FHIRTools {
       },
       {
         name: "questionnaire_populate",
+        title: "Pre-fill Health Form",
         description:
           "SDC $populate — pre-fill a Questionnaire for a subject. Returns a QuestionnaireResponse. Read tier; mints a tenant token for non-public tenants.",
         tier: "read",
@@ -323,6 +331,7 @@ export class FHIRTools {
       },
       {
         name: "questionnaire_extract",
+        title: "Extract Form Data to FHIR",
         description:
           "SDC $extract — extract FHIR resources from a completed QuestionnaireResponse into a transaction Bundle. Write tier; requires step-up unless dry_run=true.",
         tier: "write",
@@ -339,6 +348,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_propose_write",
+        title: "Propose FHIR Write",
         description:
           "Propose a write — validates the resource and returns a preview. Does NOT commit. Safe to call without step-up authorization.",
         tier: "write",
@@ -361,6 +371,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_commit_write",
+        title: "Commit FHIR Write",
         description:
           "Commit a previously proposed write. Requires step-up authorization token. This is a destructive operation.",
         tier: "write",
@@ -383,6 +394,7 @@ export class FHIRTools {
       // --- Additional tools (mix of R6-specific and standard FHIR) ---
       {
         name: "fhir_stats",
+        title: "Observation Statistics",
         description:
           "Compute statistics (count, min, max, mean) over numeric Observation values. Standard FHIR $stats (since R4). Only supports valueQuantity. Filter by patient and/or code.",
         tier: "read",
@@ -404,6 +416,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_interpret_labs",
+        title: "Interpret Lab Results",
         description:
           "Interpret lab Observations against reference ranges — flags each value low/normal/high/critical (HL7 v3 ObservationInterpretation) and returns clinician + consumer summaries. Decision support, not diagnosis. Read-tier.",
         tier: "read",
@@ -420,6 +433,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_lastn",
+        title: "Latest Observations",
         description:
           "Get the last N observations per code. Standard FHIR $lastn (since R4). Returns most recent observations by storage order.",
         tier: "read",
@@ -446,6 +460,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_permission_evaluate",
+        title: "Evaluate Access Permission",
         description:
           "Evaluate R6 Permission resources for access control decisions. Returns permit/deny based on stored Permission rules. Separates access control (Permission) from consent records (Consent).",
         tier: "read",
@@ -472,6 +487,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_subscription_topics",
+        title: "List Subscription Topics",
         description:
           "List available SubscriptionTopics for event-driven subscriptions. R6 moves topic-based subscriptions toward Normative. Agents discover what events they can subscribe to.",
         tier: "read",
@@ -485,6 +501,7 @@ export class FHIRTools {
       // --- Wearables: connection + sync status surface ---
       {
         name: "wearables_sync_status",
+        title: "Wearables Sync Status",
         description:
           "List wearable connections (Garmin, Oura, Polar, Suunto, Whoop, Fitbit, Strava, Ultrahuman) for a tenant, with last sync time, observation count, and status. Use this to tell a patient what's connected, when data last arrived, and surface a connection-management UI (via _meta.ui.resourceUri) so they can connect more providers. Data flows into HealthClaw as FHIR Observations with LOINC codes — agents read it via fhir_search like any other Observation.",
         tier: "read",
@@ -503,6 +520,7 @@ export class FHIRTools {
       // --- Sources: survey ALL connected health data sources at once ---
       {
         name: "sources_check",
+        title: "Check Data Sources",
         description:
           "Survey ALL connected health data sources (Fasten, HealthEx, Health Bank One, MEDENT, Flexpa, Epic/Health Skillz, wearables) at once — returns each source's connection status and the patient's record counts by type. Use when the patient asks what's connected or to check for data across services.",
         tier: "read",
@@ -516,6 +534,7 @@ export class FHIRTools {
       // --- Compiled Truth: current state + evidence timeline ---
       {
         name: "fhir_compiled_truth",
+        title: "Compiled Truth Timeline",
         description:
           "Return the current best understanding of a FHIR resource plus the append-only evidence trail (Provenance entries) of how it got there. Use this before presenting resource-specific facts to a patient — surfaces curation_state and quality_score so the agent can say not just WHAT the record says but WHY it says it. Redacted, audited. Response includes _meta.ui.resourceUri pointing to an embeddable review UI.",
         tier: "read",
@@ -538,6 +557,7 @@ export class FHIRTools {
       // --- Curatr: patient-facing data quality tools ---
       {
         name: "curatr_evaluate",
+        title: "Evaluate Data Quality",
         description:
           "Evaluate a FHIR resource for data quality issues. Checks coding elements against public terminology services (tx.fhir.org for SNOMED/LOINC, NLM for ICD-10-CM, RXNAV for RxNorm) and structural rules. Returns issues in plain language with patient-facing impact descriptions and resolution suggestions. Read-only — no step-up required.",
         tier: "read",
@@ -559,6 +579,7 @@ export class FHIRTools {
       },
       {
         name: "curatr_apply_fix",
+        title: "Apply Data Quality Fix",
         description:
           "Apply patient-approved data quality fixes to a FHIR resource. Creates a linked Provenance record with full attribution. Requires step-up authorization (X-Step-Up-Token) and human confirmation (X-Human-Confirmed: true) for clinical resources like Condition.",
         tier: "write",
@@ -598,6 +619,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_get_token",
+        title: "Mint Step-Up Token",
         description:
           "Get a fresh step-up authorization token for write operations. Call this before fhir_propose_write, fhir_commit_write, or curatr_apply_fix. Tokens expire after 5 minutes. Returns the token string — pass it as _stepUpToken in subsequent write tool calls.",
         tier: "read",
@@ -615,6 +637,7 @@ export class FHIRTools {
       },
       {
         name: "fhir_seed",
+        title: "Seed Demo Data",
         description:
           "Seed a tenant with a realistic Patient + Observations + Condition bundle for live testing. Use this at the start of a demo session to populate data. Returns created resource IDs and a ready-to-use step_up_token.",
         tier: "read",
@@ -633,6 +656,7 @@ export class FHIRTools {
       // --- Real-world action tools (Phase 1: action core) ---
       {
         name: "action_propose",
+        title: "Propose Real-World Action",
         description:
           "Propose a real-world action (phone call or SMS) on the patient's behalf. Returns a draft (id + script) the patient MUST review before commit. Does not execute anything.",
         tier: "write",
@@ -656,6 +680,7 @@ export class FHIRTools {
       },
       {
         name: "action_commit",
+        title: "Commit Real-World Action",
         description:
           "Execute a previously proposed action AFTER the patient has explicitly approved the draft. Requires step-up authorization (call fhir_get_token first; pass as _stepUpToken). Only call this after the patient says yes.",
         tier: "write",
@@ -670,6 +695,7 @@ export class FHIRTools {
       },
       {
         name: "action_status",
+        title: "Action Status",
         description:
           "Check the status and outcome of an action (proposed/executing/completed/failed). Use after commit to report the result back to the patient.",
         tier: "read",
@@ -684,6 +710,7 @@ export class FHIRTools {
       },
       {
         name: "shl_generate",
+        title: "Generate SMART Health Link",
         description:
           "Generate a SMART Health Link (shlink:/ QR payload) sharing the patient's record with a clinic. Fetches the guardrailed share-bundle from HealthClaw (step-up required — pass _stepUpToken), encrypts it client-side (the SHL server never sees plaintext), uploads ciphertext, and returns the shlink URI, viewer link, and the patient's private manage link. ALWAYS get the patient's explicit consent before generating, and deliver the manage link ONLY to the patient.",
         tier: "write",

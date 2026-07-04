@@ -128,6 +128,13 @@ describe("Tool Schema Tests", () => {
     }
   });
 
+  it("every tool has a human-readable title (connector-directory requirement)", () => {
+    for (const tool of schemas) {
+      expect(typeof tool.title).toBe("string");
+      expect((tool.title as string).length).toBeGreaterThan(0);
+    }
+  });
+
   it("all 24 tool names match the expected set", () => {
     const actualNames = schemas.map((t) => t.name).sort();
     expect(actualNames).toEqual(EXPECTED_TOOL_NAMES);
