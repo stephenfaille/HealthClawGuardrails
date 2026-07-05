@@ -85,3 +85,59 @@ touch in that community lands (e.g., open-wearables bug reports before the FHIR
 proposal; Fasten comment before the export PR). Track everything in a
 `community` label on our own tracker. Every merged PR gets one line in the next
 release notes — visibility compounds both directions.
+
+---
+
+## Community supercharge: OpenClaw + Hermes ecosystems (researched 2026-07-05)
+
+**Thesis:** ride the two biggest agent-framework communities (OpenClaw 381k★ /
+101k Discord; Hermes 209k★ / 124k Discord) where HealthClaw already runs in
+production. Health is the highest-stakes, least-served category in both —
+ClawHub has ~30 generic wellness skills and ZERO FHIR/clinical/guardrails
+entries; Hermes' `optional-skills/health/` exists with no medical-records skill.
+Post-ClawHavoc security anxiety makes "guardrails-first health data" ride the
+current, not fight it.
+
+### OpenClaw (ranked)
+1. **Publish all 14 skills to ClawHub** (`clawhub skill publish`) — format
+   already matches (SKILL.md); skills are scan-safe (no scripts, no embedded
+   creds). GATE: user GitHub device-flow login. Everything else depends on this.
+2. **PR to VoltAgent/awesome-openclaw-skills** (50.9k★; Health & Fitness
+   category has 87 entries, none clinical) — requires ClawHub links first.
+3. **Discord #showcase / #clawhub-skills** post (101k members) — lead with the
+   guardrail stack + live conformance badge; the share-health-qr / SHL story is
+   visual. HUMAN (Gene's voice).
+4. **Engage core security issues** #9256 (security gateway for skill installs),
+   #45031 (built-in skill scanning), #80573 (capability manifests), #11829
+   (protecting API keys from agents) — production guardrail experience as
+   design input. Builds maintainer credibility.
+5. **Docs proposal "Using OpenClaw with health data safely"** — issue/Discord
+   thread FIRST per CONTRIBUTING (cold docs PRs get closed).
+6. Later: package the MCP server as a ClawHub plugin (`@healthclaw/...`).
+   Bonus channel that already works: OpenClaw natively installs Claude-format
+   plugin marketplaces → `openclaw plugins install --marketplace aks129/HealthClawGuardrails`.
+
+### Hermes / Nous Research (ranked)
+1. **PR: `optional-mcps/healthclaw/manifest.yaml`** — "presence in this
+   directory = Nous approval"; Linear (third-party SaaS, remote Streamable
+   HTTP + OAuth) is direct precedent. ~40-line manifest; curate
+   `tools.default_enabled` to the read group; document desktop-demo zero-setup
+   trial. THE single highest-reach move available.
+2. ✅ **`/.well-known/agent-skills/index.json` SHIPPED** (spec v0.2.0 + v0.1
+   alias) — self-serve discovery for Hermes, Claude Code, Cursor, any client.
+3. **PR: `optional-skills/health/fhir-guardrails/`** — flagship SKILL.md into
+   the existing health category; frame as the *pattern* (PHI redaction, audit,
+   HITL for MCP writes) with HealthClaw as reference backend to avoid
+   vendor-tie-in objection.
+4. **skills.sh listing + tap** (`hermes skills tap add aks129/HealthClawGuardrails`).
+5. **Discord #plugins-skills-and-skins** (124k; teknium amplifies from there). HUMAN.
+6. **Hermes Atlas** submission (issue on ksimback/hermes-ecosystem) — likely
+   first health-data entry.
+7. **MCP-auth issue engagement** — #51291 (typed human-approval protocol: our
+   X-Human-Confirmed pattern is prior art), #30320 (MCP URL headers — we live
+   this), #52460/#39551/#44592 (OAuth bugs). Contribution priority #1 = bugs.
+
+**Sequencing note:** these are LISTINGS + design-input, additive to (not gated
+by) the wave-1 pacing rule — registries and catalogs are self-serve/invited
+paths, unlike cold-tracker PRs. The Hermes optional-mcps PR and awesome-list PR
+are the two external fires; space them a day apart.
