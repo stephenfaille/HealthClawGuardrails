@@ -151,3 +151,17 @@ def _persist_document_reference(tenant_id, session, size):
     db.session.commit()
     record_audit_event("create", "DocumentReference", row.id,
                        tenant_id=tenant_id, detail="smbp report pdf")
+
+
+# --- Reminder scheduler (GET /r6/smbp/reminders/due — #61) ---
+# Registered onto smbp_blueprint here so main.py's app.register_blueprint picks
+# it up automatically. authenticate_tenant_read is imported lazily inside the
+# deps to keep the r6.routes <-> r6.smbp import graph acyclic, matching the
+# pattern the report handler above uses.
+from r6.smbp.scheduler_routes import register_scheduler_routes  # noqa: E402
+from r6.routes import authenticate_tenant_read  # noqa: E402
+
+register_scheduler_routes(smbp_blueprint, {
+    "operation_outcome": _oo,
+    "authenticate_tenant_read": authenticate_tenant_read,
+})
