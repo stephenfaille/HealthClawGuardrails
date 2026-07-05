@@ -432,6 +432,24 @@ export class FHIRTools {
         },
       },
       {
+        name: "guardrail_conformance",
+        title: "Guardrail Conformance Scorecard",
+        description:
+          "Run the guardrail conformance self-test on the connected HealthClaw deployment and return the graded scorecard (A-F across PHI redaction, immutable audit, step-up auth, human-in-the-loop, tenant isolation, medical disclaimers). Uses synthetic data only. Set fresh=true to force a new run instead of the cached result.",
+        tier: "read",
+        annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            fresh: {
+              type: "boolean",
+              description: "Force a fresh probe run instead of the cached (<=10 min old) result",
+            },
+          },
+          required: [],
+        },
+      },
+      {
         name: "fhir_lastn",
         title: "Latest Observations",
         description:
@@ -897,6 +915,9 @@ export class FHIRTools {
           input.subject as string | undefined,
           fwdHeaders
         );
+
+      case "guardrail_conformance":
+        return this.guardrailConformance(input.fresh === true, fwdHeaders);
 
       case "fhir_lastn":
         return this.observationLastN(
@@ -1571,6 +1592,20 @@ export class FHIRTools {
   }
 
   // --- Curatr: patient-facing data quality tools ---
+
+  private async guardrailConformance(
+    fresh: boolean,
+    headers: Record<string, string>
+  ): Promise<Record<string, unknown>> {
+    const url = `${this.baseUrl}/$conformance${fresh ? "?fresh=1" : ""}`;
+    const resp = await fetch(url, { headers });
+    // 503 = graded below A — still return the scorecard body, it explains why.
+    const body = (await resp.json()) as Record<string, unknown>;
+    if (!resp.ok && !("grade" in body)) {
+      return { error: `Conformance self-test failed with status ${resp.status}` };
+    }
+    return body;
+  }
 
   private async curatrEvaluate(
     resourceType: string,

@@ -1,6 +1,6 @@
 {
   "source": "healthclaw-mcp",
-  "tool_count": 26,
+  "tool_count": 27,
   "tools": [
     {
       "name": "context_get",
@@ -783,6 +783,26 @@
         "openWorldHint": false
       },
       "title": "Fetch Health Record"
+    },
+    {
+      "name": "guardrail_conformance",
+      "title": "Guardrail Conformance Scorecard",
+      "description": "Run the guardrail conformance self-test on the connected HealthClaw deployment and return the graded scorecard (A-F across PHI redaction, immutable audit, step-up auth, human-in-the-loop, tenant isolation, medical disclaimers). Uses synthetic data only. Set fresh=true to force a new run instead of the cached result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fresh": {
+            "type": "boolean",
+            "description": "Force a fresh probe run instead of the cached (<=10 min old) result"
+          }
+        },
+        "required": []
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
     }
   ]
 }

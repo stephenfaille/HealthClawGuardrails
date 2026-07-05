@@ -61,6 +61,7 @@ const EXPECTED_TOOL_NAMES = [
   "fhir_stats",
   "fhir_subscription_topics",
   "fhir_validate",
+  "guardrail_conformance",
   "questionnaire_extract",
   "questionnaire_populate",
   "search",
@@ -79,6 +80,7 @@ const READ_ONLY_TOOL_NAMES = [
   "fhir_search",
   "fhir_validate",
   "fhir_stats",
+  "guardrail_conformance",
   "fhir_interpret_labs",
   "fhir_lastn",
   "fhir_permission_evaluate",
@@ -102,8 +104,8 @@ describe("Tool Schema Tests", () => {
     schemas = tools.getMCPToolSchemas();
   });
 
-  it("getMCPToolSchemas() returns exactly 26 tools", () => {
-    expect(schemas).toHaveLength(26);
+  it("getMCPToolSchemas() returns exactly 27 tools", () => {
+    expect(schemas).toHaveLength(27);
   });
 
   it("exposes questionnaire_populate (read) and questionnaire_extract (write)", () => {
@@ -139,7 +141,7 @@ describe("Tool Schema Tests", () => {
     }
   });
 
-  it("all 26 tool names match the expected set", () => {
+  it("all 27 tool names match the expected set", () => {
     const actualNames = schemas.map((t) => t.name).sort();
     expect(actualNames).toEqual(EXPECTED_TOOL_NAMES);
   });
@@ -583,6 +585,34 @@ describe("Tool Execution Tests", () => {
   });
 
   // -- fhir_interpret_labs --
+
+  it("guardrail_conformance fetches /$conformance and returns the scorecard", async () => {
+    mockFetch.mockResolvedValueOnce(
+      fakeResponse({ passed: true, grade: "A",
+        score: { passed: 6, total: 6 }, properties: [], cached: false })
+    );
+
+    const result = await tools.executeTool("guardrail_conformance", {}, {
+      "x-tenant-id": "t1",
+    });
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain(`${BASE}/$conformance`);
+    expect((result as Record<string, unknown>).grade).toBe("A");
+    expect((result as Record<string, unknown>).passed).toBe(true);
+  });
+
+  it("guardrail_conformance passes fresh=1 when requested", async () => {
+    mockFetch.mockResolvedValueOnce(
+      fakeResponse({ passed: true, grade: "A",
+        score: { passed: 6, total: 6 }, properties: [], cached: false })
+    );
+
+    await tools.executeTool("guardrail_conformance", { fresh: true }, {});
+
+    const [url] = mockFetch.mock.calls[0];
+    expect(url).toContain("fresh=1");
+  });
 
   it("fhir_interpret_labs posts to /Observation/$interpret and returns Parameters", async () => {
     mockFetch.mockResolvedValueOnce(
@@ -1286,7 +1316,7 @@ describe("Express App Tests", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.result).toBeDefined();
-      expect(res.body.result.tools).toHaveLength(26);
+      expect(res.body.result.tools).toHaveLength(27);
 
       const names = new Set<string>(
         res.body.result.tools.map((t: { name: string }) => t.name)
@@ -1467,7 +1497,7 @@ describe("Express App Tests", () => {
         .send({ jsonrpc: "2.0", id: 1, method: "tools/list" });
 
       expect(res.status).toBe(200);
-      expect(res.body.result.tools).toHaveLength(26);
+      expect(res.body.result.tools).toHaveLength(27);
     });
 
     it("tools/call executes the tool and returns result directly (not wrapped)", async () => {
