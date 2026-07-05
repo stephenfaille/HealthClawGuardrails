@@ -42,10 +42,24 @@ Two options:
 
 ## Gemini
 
-Gemini has no turnkey remote-MCP connector, so use the bridge:
-`adapters/examples/gemini_agent.py` maps `to_gemini_declarations(...)` into a
-`Tool(function_declarations=...)`, and relays each `functionCall` to `/mcp/rpc`,
-returning the result as a `functionResponse`.
+Two paths:
+
+1. **Gemini CLI — one command, zero code.** This repo ships a
+   `gemini-extension.json` pointing at the remote MCP server, so:
+
+   ```bash
+   gemini extensions install https://github.com/aks129/HealthClawGuardrails
+   ```
+
+   installs all 26 guardrailed tools (plus a `GEMINI.md` context file that keeps
+   the model inside the decision-support-not-diagnosis guardrails). The default
+   public `desktop-demo` tenant works immediately; set your own `X-Tenant-Id` /
+   `X-Step-Up-Token` headers in the extension config for real data.
+
+2. **Gemini API (Vertex / SDK)** — use the bridge:
+   `adapters/examples/gemini_agent.py` maps `to_gemini_declarations(...)` into a
+   `Tool(function_declarations=...)`, and relays each `functionCall` to `/mcp/rpc`,
+   returning the result as a `functionResponse`.
 
 ## Skills
 
