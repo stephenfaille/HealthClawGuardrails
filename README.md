@@ -175,6 +175,9 @@ open http://localhost:5000/r6-dashboard  # Interactive dashboard
 ```bash
 docker-compose up -d --build
 
+# macOS note: port 5000 conflicts with AirPlay Receiver — remap with:
+# HOST_PORT=5050 docker-compose up -d --build
+
 # Services:
 # - fhir-mcp-guardrails (Flask, port 5000)
 # - agent-orchestrator (MCP server, port 3001)
