@@ -39,8 +39,8 @@ Copy this into the release PR/issue and check items off.
 
 - [ ] Flask + marketing auto-deploy on push (Railway `HealthClawGuardrails`, Vercel) — verify
       `https://app.healthclaw.io/r6/fhir/metadata` returns 200 post-deploy
-- [ ] **mcp-server does NOT auto-deploy** — staging-dir `railway up` (see CLAUDE.md
-      "Deployment Hosts"), then verify `POST /mcp/rpc tools/list` returns the expected tool count
+- [ ] **mcp-server does NOT auto-deploy** — staging-dir `railway up` (see
+      [docs/development.md](docs/development.md) deploy notes), then verify `POST /mcp/rpc tools/list` returns the expected tool count
 - [ ] Re-seed `desktop-demo` if the release changed seed data: `POST /r6/fhir/internal/seed`
 
 ### 5. Announce (within 48h of the release)

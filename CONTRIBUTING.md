@@ -26,7 +26,7 @@ extraction semantics wrong" issue is as valuable as a PR.
 
 - **Flask app (Python)** — the FHIR REST facade + guardrail stack, under `r6/`. Entry point `main.py`.
 - **MCP server (Node/TypeScript)** — `services/agent-orchestrator/`.
-- **The guardrail rules that matter** are summarized in [CLAUDE.md](CLAUDE.md) (the same file an AI agent reads to work in this repo) — it's the fastest way to learn the non-obvious invariants.
+- **The guardrail rules that matter** — build/test commands, architecture map, and the security invariants — live in [docs/development.md](docs/development.md). Read it first; it's the fastest way to learn the non-obvious parts.
 
 ## Development setup
 
@@ -85,7 +85,7 @@ change weakens a gate, the build fails — that's intentional.
 5. A maintainer reviews for correctness, the guardrail invariants above, and spec conformance.
 
 For larger features, open an issue first so we can align on the design — for
-substantial work we keep a short design spec under `docs/superpowers/specs/`.
+substantial work we keep a short design doc under `docs/design/`.
 
 ## Reporting security issues
 

@@ -34,7 +34,7 @@
 
 <br/>
 
-**[Quick Start](#quick-start)** · **[MCP Tools](#mcp-tools-27)** · **[Recipes](docs/recipes/)** · **[Claude Plugin](#install-as-a-claude-plugin)** · **[Architecture](#what-it-does)** · **[healthclaw.io](https://healthclaw.io)** · **[Contributing](CONTRIBUTING.md)**
+**[Quick Start](#quick-start)** · **[MCP Tools](#mcp-tools-27)** · **[Recipes](docs/recipes/)** · **[Roadmap](docs/ROADMAP.md)** · **[Claude Plugin](#install-as-a-claude-plugin)** · **[Architecture](#what-it-does)** · **[healthclaw.io](https://healthclaw.io)** · **[Contributing](CONTRIBUTING.md)** · **[Dev Guide](docs/development.md)**
 
 </div>
 

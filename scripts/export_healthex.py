@@ -69,7 +69,7 @@ DEFAULT_TYPES = [
     "Encounter",
 ]
 
-# FHIR pagination page size — 200 is the server max per CLAUDE.md
+# FHIR pagination page size — 200 is the server max
 _PAGE_SIZE = 200
 
 # LOINC code for tobacco smoking status
