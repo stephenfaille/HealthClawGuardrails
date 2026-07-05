@@ -49,6 +49,22 @@
 
 **At a glance:** v1.6.0 · 840+ Python + 88 Node tests · 27 MCP tools · FHIR R4 US Core v9 + R6 v6.0.0-ballot3 · HL7 SDC forms (`$populate`/`$extract`) · NQF 0018 quality measure · lab interpreter (`$interpret`) · ChatGPT-connector `search`/`fetch` · Fasten TEFCA · HealthEx · HBO · Flexpa · Epic · MEDENT · Open Wearables · real-world actions (calls/SMS) · SMART Health Links · Claude Code plugin · OpenAI/Gemini adapters
 
+## Try it in 60 seconds — no clone, no keys
+
+The hosted demo runs synthetic data behind the full guardrail stack:
+
+```bash
+# Watch the deployment grade its own guardrails (PHI redaction, audit, step-up, ...):
+curl "https://app.healthclaw.io/r6/fhir/\$conformance?format=text"
+```
+
+Point any MCP client at the live server — URL `https://mcp-server-production-5112.up.railway.app/mcp`,
+header `X-Tenant-Id: desktop-demo` — then ask: *"Search my health records for lab results and explain
+them in plain language."* One-command installs:
+`gemini extensions install https://github.com/aks129/HealthClawGuardrails` ·
+`claude plugin marketplace add aks129/HealthClawGuardrails` ·
+skills on [ClawHub](https://clawhub.ai/aks129/skills/fhir-r6-guardrails)
+
 ## Release highlights
 
 Full notes live in **[Releases](https://github.com/aks129/HealthClawGuardrails/releases)**.
