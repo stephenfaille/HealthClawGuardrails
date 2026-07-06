@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from scripts.seed_quality_demo import build_quality_cohort
 from r6.smbp.monitoring import build_bp_observation  # noqa: F401  (namespace-package import check)
 from r6.quality.measures import evaluate_population
@@ -17,7 +19,7 @@ def test_cohort_yields_believable_rate():
                  for cd in g["conditions"]]
         obs = [{**g["observation"], "subject": {"reference": f"Patient/{g['label']}"}}]
         bundle.append({"patient": patient, "conditions": conds, "observations": obs})
-    pop = evaluate_population(bundle, "2026-01-01", "2026-12-31")
+    pop = evaluate_population(bundle, f"{datetime.now().year}-01-01", f"{datetime.now().year}-12-31")
     assert pop["denominator"] == 11   # gross (pre-exclusion) per HL7 convention
     assert pop["exclusions"] == 1     # 1 pregnancy exclusion
     assert pop["numerator"] == 7      # 7 controlled
